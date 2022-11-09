@@ -1,0 +1,27 @@
+{
+  "name": "release-comment-action",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "ncc build src/index.ts --license licenses.txt"
+  },
+  "author": "Logan McAnsh <logan@mcan.sh> (https://mcan.sh/)",
+  "license": "MIT",
+  "dependencies": {
+    "@actions/core": "^1.10.0",
+    "@actions/github": "^5.1.1",
+    "@octokit/action": "^4.0.10",
+    "@octokit/plugin-paginate-rest": "^5.0.1",
+    "@octokit/plugin-throttling": "^4.3.2",
+    "semver": "^7.3.8"
+  },
+  "devDependencies": {
+    "@tsconfig/node16": "^1.0.3",
+    "@types/node": "^18.11.9",
+    "@types/semver": "^7.3.13",
+    "@vercel/ncc": "^0.34.0",
+    "prettier": "^2.7.1",
+    "typescript": "^4.8.4"
+  }
+}

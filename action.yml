@@ -1,5 +1,22 @@
-name: 'Release Announcement Action'
-description: 'automatically comment on released pull requests and linked issues'
+name: "Release Announcement Action"
+description: "automatically comment on released pull requests and linked issues"
 runs:
-  using: 'node16'
-  main: 'dist/index.js'
+  using: "node16"
+  main: "dist/index.js"
+inputs:
+  default-branch:
+    description: "The default branch of the repository"
+    default: "main"
+  nightly-branch:
+    description: "The nightly (dev) branch of the repository"
+    required: true
+    default: "dev"
+  package-version-to-follow:
+    description: "The package version to follow"
+    required: true
+  awaiting-release-label:
+    description: "The label to add to pull requests after they've been merged to the nightly branch"
+    default: "awaiting release"
+  version:
+    description: "The version of the release"
+    required: true

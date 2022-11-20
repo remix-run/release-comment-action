@@ -1,28 +1,27 @@
 import github from "@actions/github";
+import core from "@actions/core";
+
 import { cleanupRef, cleanupTagName, isNightly } from "./utils";
 
-if (!process.env.DEFAULT_BRANCH) {
-  throw new Error("DEFAULT_BRANCH is required");
-}
-if (!process.env.NIGHTLY_BRANCH) {
-  throw new Error("NIGHTLY_BRANCH is required");
-}
-if (!process.env.VERSION) {
-  throw new Error("VERSION is required");
-}
-if (!/^refs\/tags\//.test(process.env.VERSION)) {
+export let DEFAULT_BRANCH = core.getInput("default-branch");
+export let NIGHTLY_BRANCH = core.getInput("nightly-branch", { required: true });
+let ORIGINAL_VERSION = core.getInput("version", { required: true });
+
+if (!/^refs\/tags\//.test(ORIGINAL_VERSION)) {
   throw new Error("VERSION must start with refs/tags/");
 }
-if (!process.env.PACKAGE_VERSION_TO_FOLLOW) {
-  throw new Error("PACKAGE_VERSION_TO_FOLLOW is required");
-}
 
-export const PACKAGE_VERSION_TO_FOLLOW = process.env.PACKAGE_VERSION_TO_FOLLOW;
-export const VERSION = cleanupTagName(cleanupRef(process.env.VERSION));
-export const DEFAULT_BRANCH = process.env.DEFAULT_BRANCH;
-export const NIGHTLY_BRANCH = process.env.NIGHTLY_BRANCH;
-export const PR_FILES_STARTS_WITH = ["packages/"];
-export const IS_NIGHTLY_RELEASE = isNightly(VERSION);
-export const AWAITING_RELEASE_LABEL = "awaiting release";
+export let PACKAGE_VERSION_TO_FOLLOW = core.getInput(
+  "package-version-to-follow",
+  { required: true }
+);
 
-export const { owner: OWNER, repo: REPO } = github.context.repo;
+export let AWAITING_RELEASE_LABEL = core.getInput("awaiting-release-label", {
+  required: false,
+});
+
+export let VERSION = cleanupTagName(cleanupRef(ORIGINAL_VERSION));
+export let PR_FILES_STARTS_WITH = ["packages/"];
+export let IS_NIGHTLY_RELEASE = isNightly(VERSION);
+
+export let { owner: OWNER, repo: REPO } = github.context.repo;

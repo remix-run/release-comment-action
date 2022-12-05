@@ -19,12 +19,12 @@
     "semver": "^7.3.8"
   },
   "devDependencies": {
-    "@remix-run/eslint-config": "1.7.6",
+    "@remix-run/eslint-config": "1.8.0",
     "@tsconfig/node16": "^1.0.3",
     "@types/node": "^18.11.9",
     "@types/semver": "^7.3.13",
     "@vercel/ncc": "^0.34.0",
-    "eslint": "8.28.0",
+    "eslint": "8.29.0",
     "eslint-plugin-prefer-let": "3.0.1",
     "prettier": "^2.7.1",
     "typescript": "^4.8.4"

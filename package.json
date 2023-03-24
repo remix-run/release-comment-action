@@ -6,7 +6,8 @@
   "scripts": {
     "build": "ncc build src/index.ts --license licenses.txt",
     "lint": "eslint --cache --fix --ignore-path .eslintignore .",
-    "format": "prettier --write --ignore-path .eslintignore ."
+    "format": "prettier --write --ignore-path .eslintignore .",
+    "prepare": "husky install"
   },
   "author": "Logan McAnsh <logan@mcan.sh> (https://mcan.sh/)",
   "license": "MIT",
@@ -25,6 +26,7 @@
     "@vercel/ncc": "^0.36.1",
     "eslint": "^8.36.0",
     "eslint-plugin-prefer-let": "^3.0.1",
+    "husky": "^8.0.0",
     "prettier": "^2.8.7",
     "typescript": "^5.0.2"
   }

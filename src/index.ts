@@ -268,28 +268,32 @@ async function findMergedPRs(commits: Array<string>): Promise<MergedPR[]> {
   return result.filter((pr: any): pr is MergedPR => pr != undefined);
 }
 
+type ReferencedIssueResultNodes = Array<{ number: number }>;
+type ReferencedIssueResultPageInfo = {
+  hasNextPage: boolean;
+  endCursor: string;
+};
 type ReferencedIssueResult = {
   data: {
     resource: {
       closingIssuesReferences: {
-        nodes: Array<{ number: number }>;
-        pageInfo: {
-          hasNextPage: boolean;
-          endCursor: string;
-        };
+        nodes: ReferencedIssueResultNodes;
+        pageInfo: ReferencedIssueResultPageInfo;
       };
     };
   };
 };
 
 function isReferencedResult(result: any): result is ReferencedIssueResult {
-  let isNode = (node: any): node is { number: number } => {
-    return typeof node === "object" && typeof node.number === "number";
+  let isNode = (node: any): node is ReferencedIssueResultNodes => {
+    return typeof node === "object" && node.number
+      ? typeof node.number === "number"
+      : true;
   };
 
   let isPageInfo = (
     pageInfo: any
-  ): pageInfo is { hasNextPage: boolean; endCursor: string } => {
+  ): pageInfo is ReferencedIssueResultPageInfo => {
     return (
       typeof pageInfo === "object" &&
       typeof pageInfo.hasNextPage === "boolean" &&
@@ -299,10 +303,7 @@ function isReferencedResult(result: any): result is ReferencedIssueResult {
 
   let isClosingIssuesReferences = (
     closingIssuesReferences: any
-  ): closingIssuesReferences is {
-    nodes: Array<{ number: number }>;
-    pageInfo: { hasNextPage: boolean; endCursor: string };
-  } => {
+  ): closingIssuesReferences is ReferencedIssueResult => {
     return (
       typeof closingIssuesReferences === "object" &&
       typeof closingIssuesReferences.nodes === "object" &&

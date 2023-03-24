@@ -7229,7 +7229,9 @@ async function findMergedPRs(commits) {
 }
 function isReferencedResult(result) {
     let isNode = (node) => {
-        return typeof node === "object" && typeof node.number === "number";
+        return typeof node === "object" && node.number
+            ? typeof node.number === "number"
+            : true;
     };
     let isPageInfo = (pageInfo) => {
         return (typeof pageInfo === "object" &&

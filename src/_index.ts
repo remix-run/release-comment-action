@@ -13,41 +13,30 @@ import { trimNewlines } from "trim-newlines";
 let PACKAGE_VERSION_TO_FOLLOW = process.env.PACKAGE_VERSION_TO_FOLLOW;
 let GITHUB_REPOSITORY = process.env.GITHUB_REPOSITORY;
 let DRY_RUN = process.env.DRY_RUN;
-let DIRECTORY_TO_CHECK = process.env.DIRECTORY_TO_CHECK;
-
-if (!DIRECTORY_TO_CHECK) {
-  core.warning("DIRECTORY_TO_CHECK is not set, we'll check all files");
-}
 
 if (!PACKAGE_VERSION_TO_FOLLOW) {
-  core.warning("PACKAGE_VERSION_TO_FOLLOW is not set, we'll get all tags");
+  core.error("PACKAGE_VERSION_TO_FOLLOW is required");
+  process.exit(1);
 }
 
 if (!GITHUB_REPOSITORY) {
-  core.setFailed("GITHUB_REPOSITORY is required");
-}
-
-function debug(message: string) {
-  if (DRY_RUN || core.isDebug()) {
-    console.log(message);
-  }
+  core.error("GITHUB_REPOSITORY is required");
+  process.exit(1);
 }
 
 async function main() {
-  let gitTagsArgs = [
+  let gitTagsResult = await execa("git", [
     "tag",
     "-l",
-    ...(PACKAGE_VERSION_TO_FOLLOW
-      ? [`${PACKAGE_VERSION_TO_FOLLOW}@*`, "v0.0.0-nightly-*"]
-      : []),
+    `${PACKAGE_VERSION_TO_FOLLOW}@*`,
+    "v0.0.0-nightly-*",
     "--sort",
     "-creatordate",
     "--format",
     "%(refname:strip=2)",
-  ];
-  let gitTagsResult = await execa("git", gitTagsArgs);
+  ]);
 
-  debug(`> ${gitTagsResult.command}`);
+  core.debug(`> ${gitTagsResult.command}`);
 
   if (gitTagsResult.stderr) {
     core.error(gitTagsResult.stderr);
@@ -69,53 +58,45 @@ async function main() {
   // if prerelease && pre.0 OR stable, then we need to get the previous stable version
   // if pre.x, then we need to get the previous pre.x version
   if (isPreRelease) {
-    debug(`pre-release: ${latest.clean}`);
+    core.debug(`pre-release: ${latest.clean}`);
     let preRelease = semver.prerelease(latest.clean);
     if (preRelease && preRelease.join(".") === "pre.0") {
-      debug(`first pre-release: ${latest.clean}`);
+      core.debug(`first pre-release: ${latest.clean}`);
       let stableTags = getStableTags(gitTags);
       previous = stableTags[0];
     }
   } else if (isStable) {
-    debug(`stable: ${latest.clean}`);
+    core.debug(`stable: ${latest.clean}`);
     let stableTags = getStableTags(gitTags);
     previous = stableTags[1];
   } else {
-    debug(`nightly: ${latest.clean}`);
+    core.debug(`nightly: ${latest.clean}`);
   }
 
-  debug(
+  core.debug(
     JSON.stringify({ latest, previous, isPreRelease, isStable, isNightly })
   );
 
-  let gitCommitArgs = [
+  let gitCommitsResult = await execa("git", [
     "log",
     "--pretty=format:%H",
     `${previous.raw}...${latest.raw}`,
-  ];
+    "./packages",
+  ]);
 
-  if (DIRECTORY_TO_CHECK) gitCommitArgs.push(DIRECTORY_TO_CHECK);
-  debug(`> git ${gitCommitArgs.join(" ")}`);
-
-  let gitCommitsResult = await execa("git", gitCommitArgs);
+  core.debug(gitCommitsResult.command);
 
   if (gitCommitsResult.stderr) {
     core.error(gitCommitsResult.stderr);
-    throw new Error(gitCommitsResult.stderr);
+    process.exit(gitCommitsResult.exitCode);
   }
 
   let gitCommits = gitCommitsResult.stdout.split("\n");
 
-  debug(JSON.stringify({ gitCommits, commitCount: gitCommits.length }));
+  core.debug(JSON.stringify({ gitCommits, commitCount: gitCommits.length }));
 
   let prs = await findMergedPRs(gitCommits);
-  if (DIRECTORY_TO_CHECK) {
-    debug(
-      `found ${prs.length} merged PRs that changed ${DIRECTORY_TO_CHECK}/*`
-    );
-  } else {
-    debug(`found ${prs.length} merged PRs that changed`);
-  }
+  core.debug(`found ${prs.length} merged PRs that changed ./packages/*`);
 
   for (let pr of prs) {
     let prComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which includes this pull request. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
@@ -128,7 +109,7 @@ async function main() {
       // prettier-ignore
       let prCommentArgs = ["pr", "comment", String(pr.number), "--body", prComment];
       promises.push(execa("gh", prCommentArgs));
-      debug(`> gh ${prCommentArgs.join(" ")}`);
+      core.debug(`> gh ${prCommentArgs.join(" ")}`);
 
       for (let issue of pr.issues) {
         console.log(`https://github.com/${GITHUB_REPOSITORY}/issues/${issue}`);
@@ -136,10 +117,10 @@ async function main() {
         // prettier-ignore
         let issueCommentArgs = ["issue", "comment", String(issue), "--body", issueComment];
         promises.push(execa("gh", issueCommentArgs));
-        debug(`> gh ${issueCommentArgs.join(" ")}`);
+        core.debug(`> gh ${issueCommentArgs.join(" ")}`);
 
         let issueCloseArgs = ["issue", "close", String(issue)];
-        debug(`> gh ${issueCloseArgs.join(" ")}`);
+        core.debug(`> gh ${issueCloseArgs.join(" ")}`);
         promises.push(execa("gh", issueCloseArgs));
       }
     }
@@ -226,7 +207,7 @@ async function findMergedPRs(commits: Array<string>): Promise<MergedPR[]> {
         "number,title,url,body",
       ]);
 
-      debug(`> ${prResult.command}`);
+      core.debug(`> ${prResult.command}`);
 
       if (prResult.stderr) {
         core.error(prResult.stderr);
@@ -235,26 +216,26 @@ async function findMergedPRs(commits: Array<string>): Promise<MergedPR[]> {
       let parsed = JSON.parse(prResult.stdout);
 
       if (parsed.length === 0) {
-        debug(`no PR found for commit ${commit}`);
+        core.debug(`no PR found for commit ${commit}`);
         return;
       }
 
       let pr = isPullRequestResult(parsed[0]) ? parsed[0] : null;
 
       if (!pr) {
-        debug(`no PR found for commit ${commit}`);
+        core.debug(`no PR found for commit ${commit}`);
         return;
       }
 
       if (CHANGESET_PR_TITLES.includes(pr.title.toLowerCase())) {
-        debug(`skipping changeset PR ${pr.number}`);
+        core.debug(`skipping changeset PR ${pr.number}`);
         return;
       }
 
       let linkedIssues = await getIssuesLinkedToPullRequest(pr.url);
       let issuesClosedViaBody = await getIssuesClosedViaBody(pr.body);
 
-      debug(JSON.stringify({ linkedIssues, issuesClosedViaBody }));
+      core.debug(JSON.stringify({ linkedIssues, issuesClosedViaBody }));
 
       let uniqueIssues = new Set([...linkedIssues, ...issuesClosedViaBody]);
 
@@ -354,7 +335,7 @@ async function getIssuesLinkedToPullRequest(
     `query=${trimNewlines(query)}`,
   ]);
 
-  debug(`> ${result.command}`);
+  core.debug(`> ${result.command}`);
 
   if (result.stderr) {
     core.error(result.stderr);

@@ -9,6 +9,7 @@ import * as core from "@actions/core";
 import { execa } from "execa";
 import semver from "semver";
 import { trimNewlines } from "trim-newlines";
+import { z } from "zod";
 
 let PACKAGE_VERSION_TO_FOLLOW = process.env.PACKAGE_VERSION_TO_FOLLOW;
 let GITHUB_REPOSITORY = process.env.GITHUB_REPOSITORY;
@@ -198,15 +199,12 @@ type PrSearchResult = {
   body: string;
 };
 
-function isPullRequestResult(pr: any): pr is PrSearchResult {
-  return (
-    typeof pr === "object" &&
-    typeof pr.number === "number" &&
-    typeof pr.title === "string" &&
-    typeof pr.url === "string" &&
-    typeof pr.body === "string"
-  );
-}
+let pullRequestResultSchema = z.object({
+  number: z.number(),
+  title: z.string(),
+  url: z.string(),
+  body: z.string(),
+});
 
 async function findMergedPRs(commits: Array<string>): Promise<MergedPR[]> {
   let CHANGESET_PR_TITLES = [
@@ -239,7 +237,7 @@ async function findMergedPRs(commits: Array<string>): Promise<MergedPR[]> {
         return;
       }
 
-      let pr = isPullRequestResult(parsed[0]) ? parsed[0] : null;
+      let pr = parsed[0] ? pullRequestResultSchema.parse(parsed[0]) : null;
 
       if (!pr) {
         debug(`no PR found for commit ${commit}`);
@@ -284,43 +282,19 @@ type ReferencedIssueResult = {
   };
 };
 
-function isReferencedResult(result: any): result is ReferencedIssueResult {
-  let isNode = (node: any): node is ReferencedIssueResultNodes => {
-    return typeof node === "object" && node.number
-      ? typeof node.number === "number"
-      : true;
-  };
-
-  let isPageInfo = (
-    pageInfo: any
-  ): pageInfo is ReferencedIssueResultPageInfo => {
-    return (
-      typeof pageInfo === "object" &&
-      typeof pageInfo.hasNextPage === "boolean" &&
-      (typeof pageInfo.endCursor === "string" || pageInfo.endCursor === null)
-    );
-  };
-
-  let isClosingIssuesReferences = (
-    closingIssuesReferences: any
-  ): closingIssuesReferences is ReferencedIssueResult => {
-    return (
-      typeof closingIssuesReferences === "object" &&
-      typeof closingIssuesReferences.nodes === "object" &&
-      closingIssuesReferences.nodes.every(isNode) &&
-      typeof closingIssuesReferences.pageInfo === "object" &&
-      isPageInfo(closingIssuesReferences.pageInfo)
-    );
-  };
-
-  return (
-    typeof result === "object" &&
-    typeof result.data === "object" &&
-    typeof result.data.resource === "object" &&
-    typeof result.data.resource.closingIssuesReferences === "object" &&
-    isClosingIssuesReferences(result.data.resource.closingIssuesReferences)
-  );
-}
+let referencedIssueResultSchema = z.object({
+  data: z.object({
+    resource: z.object({
+      closingIssuesReferences: z.object({
+        nodes: z.array(z.object({ number: z.number() })),
+        pageInfo: z.object({
+          hasNextPage: z.boolean(),
+          endCursor: z.string().nullable(),
+        }),
+      }),
+    }),
+  }),
+});
 
 async function getIssuesLinkedToPullRequest(
   prHtmlUrl: string
@@ -366,12 +340,15 @@ async function getIssuesLinkedToPullRequest(
 
   let parsed = JSON.parse(result.stdout);
 
-  if (!isReferencedResult(parsed)) {
+  let valid = referencedIssueResultSchema.safeParse(parsed);
+
+  if (!valid.success) {
     core.error(`Unexpected result from graphql query`);
+    core.error(JSON.stringify(valid.error));
     throw new Error(`Unexpected result from graphql query`);
   }
 
-  return parsed.data.resource.closingIssuesReferences.nodes.map(
+  return valid.data.data.resource.closingIssuesReferences.nodes.map(
     (node) => node.number
   );
 }

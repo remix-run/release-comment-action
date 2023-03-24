@@ -12,21 +12,19 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.10.0",
-    "@actions/github": "^5.1.1",
-    "@octokit/action": "^4.0.10",
-    "@octokit/plugin-paginate-rest": "^5.0.1",
-    "@octokit/plugin-throttling": "^4.3.2",
-    "semver": "^7.3.8"
+    "execa": "^7.1.1",
+    "semver": "^7.3.8",
+    "trim-newlines": "^5.0.0"
   },
   "devDependencies": {
-    "@remix-run/eslint-config": "1.7.6",
+    "@remix-run/eslint-config": "^1.14.3",
     "@tsconfig/node16": "^1.0.3",
-    "@types/node": "^18.11.9",
+    "@types/node": "^18.15.7",
     "@types/semver": "^7.3.13",
-    "@vercel/ncc": "^0.34.0",
-    "eslint": "8.28.0",
-    "eslint-plugin-prefer-let": "3.0.1",
-    "prettier": "^2.7.1",
-    "typescript": "^4.8.4"
+    "@vercel/ncc": "^0.36.1",
+    "eslint": "^8.36.0",
+    "eslint-plugin-prefer-let": "^3.0.1",
+    "prettier": "^2.8.7",
+    "typescript": "^5.0.2"
   }
 }

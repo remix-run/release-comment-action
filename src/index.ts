@@ -271,7 +271,7 @@ async function findMergedPRs(commits: Array<string>): Promise<MergedPR[]> {
 type ReferencedIssueResultNodes = Array<{ number: number }>;
 type ReferencedIssueResultPageInfo = {
   hasNextPage: boolean;
-  endCursor: string;
+  endCursor: string | null;
 };
 type ReferencedIssueResult = {
   data: {

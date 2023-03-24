@@ -14,6 +14,9 @@ jobs:
       - name: ⬇️ Checkout repo
         uses: actions/checkout@v3
 
+      - name: 🏷️ Fetch git tags
+        run: git fetch --tags origin
+
       - name: 📝 Comment on issues
         uses: ./
         env:

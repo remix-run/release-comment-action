@@ -51,7 +51,7 @@ async function main() {
 
   if (gitTagsResult.stderr) {
     core.error(gitTagsResult.stderr);
-    process.exit(gitTagsResult.exitCode);
+    throw new Error(gitTagsResult.stderr);
   }
 
   let packageRegex = new RegExp(`^${PACKAGE_VERSION_TO_FOLLOW}@`);
@@ -359,6 +359,7 @@ async function getIssuesLinkedToPullRequest(
 
   if (result.stderr) {
     core.error(result.stderr);
+    throw new Error(result.stderr);
   }
 
   console.log(result.stdout);
@@ -367,7 +368,7 @@ async function getIssuesLinkedToPullRequest(
 
   if (!isReferencedResult(parsed)) {
     core.error(`Unexpected result from graphql query`);
-    return [];
+    throw new Error(`Unexpected result from graphql query`);
   }
 
   return parsed.data.resource.closingIssuesReferences.nodes.map(

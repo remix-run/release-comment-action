@@ -2,8 +2,12 @@ name: 📝 Comment on Release
 
 on:
   release:
-    types: [published, prereleased]
+    types: [published]
   workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   comment:

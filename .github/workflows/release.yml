@@ -2,7 +2,7 @@ name: 📝 Comment on Release
 
 on:
   release:
-    types: [published]
+    types: [published, prereleased]
 
 jobs:
   comment:

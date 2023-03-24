@@ -1,0 +1,17 @@
+name: 📝 Comment on Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  comment:
+    name: Comment on Release
+    if: github.repository == 'mcansh/release-comment-action'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📝 Comment on issues
+        uses: ./
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}

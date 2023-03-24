@@ -297,7 +297,7 @@ function isReferencedResult(result: any): result is ReferencedIssueResult {
     return (
       typeof pageInfo === "object" &&
       typeof pageInfo.hasNextPage === "boolean" &&
-      typeof pageInfo.endCursor === "string"
+      (typeof pageInfo.endCursor === "string" || pageInfo.endCursor === null)
     );
   };
 

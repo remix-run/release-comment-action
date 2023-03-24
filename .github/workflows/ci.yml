@@ -1,0 +1,48 @@
+name: build and commit
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🛑 Cancel Previous Runs
+        uses: styfle/cancel-workflow-action@0.11.0
+
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@v3
+
+      - name: 🟧 Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 7
+
+      - name: ⎔ Setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: pnpm
+
+      - name: 📥 Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: 📦 Build
+        run: pnpm run build
+
+      - name: 📝 Commit and push changes
+        run: |
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "💿 no changes to commit"
+            exit 0
+          fi
+
+          git commit -a -m "build: update"
+          git push
+          echo "💿 pushed build https://github.com/$GITHUB_REPOSITORY/commit/$(git rev-parse HEAD)"

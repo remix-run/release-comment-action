@@ -11,25 +11,24 @@ import semver from "semver";
 import { trimNewlines } from "trim-newlines";
 import { z } from "zod";
 
-let PACKAGE_VERSION_TO_FOLLOW = process.env.PACKAGE_VERSION_TO_FOLLOW;
-let GITHUB_REPOSITORY = process.env.GITHUB_REPOSITORY;
-let DRY_RUN = process.env.DRY_RUN;
-let DIRECTORY_TO_CHECK = process.env.DIRECTORY_TO_CHECK || "./";
+let envSchema = z.object({
+  PACKAGE_VERSION_TO_FOLLOW: z.string().optional(),
+  GITHUB_REPOSITORY: z.string(),
+  DRY_RUN: z.coerce.boolean().optional(),
+  DIRECTORY_TO_CHECK: z.string().catch((ctx) => {
+    core.warning("DIRECTORY_TO_CHECK is not set, we'll check all files");
+    return "./";
+  }),
+});
 
-if (!DIRECTORY_TO_CHECK) {
-  core.warning("DIRECTORY_TO_CHECK is not set, we'll check all files");
-}
+let env = envSchema.parse(process.env);
 
-if (!PACKAGE_VERSION_TO_FOLLOW) {
+if (!env.PACKAGE_VERSION_TO_FOLLOW) {
   core.warning("PACKAGE_VERSION_TO_FOLLOW is not set, we'll get all tags");
 }
 
-if (!GITHUB_REPOSITORY) {
-  core.setFailed("GITHUB_REPOSITORY is required");
-}
-
 function debug(message: string) {
-  if (DRY_RUN || core.isDebug()) {
+  if (env.DRY_RUN || core.isDebug()) {
     console.log(message);
   }
 }
@@ -38,8 +37,8 @@ async function main() {
   let gitTagsArgs = [
     "tag",
     "-l",
-    ...(PACKAGE_VERSION_TO_FOLLOW
-      ? [`${PACKAGE_VERSION_TO_FOLLOW}@*`, "v0.0.0-nightly-*"]
+    ...(env.PACKAGE_VERSION_TO_FOLLOW
+      ? [`${env.PACKAGE_VERSION_TO_FOLLOW}@*`, "v0.0.0-nightly-*"]
       : []),
     "--sort",
     "-creatordate",
@@ -55,9 +54,11 @@ async function main() {
     throw new Error(gitTagsResult.stderr);
   }
 
-  let packageRegex = new RegExp(`^${PACKAGE_VERSION_TO_FOLLOW}@`);
+  let packageRegex = env.PACKAGE_VERSION_TO_FOLLOW
+    ? new RegExp(`^${env.PACKAGE_VERSION_TO_FOLLOW}@`)
+    : null;
   let gitTags = gitTagsResult.stdout.split("\n").map((tag) => {
-    let clean = tag.replace(packageRegex, "");
+    let clean = packageRegex ? tag.replace(packageRegex, "") : tag;
     return { raw: tag, clean };
   });
 
@@ -93,7 +94,7 @@ async function main() {
     "log",
     "--pretty=format:%H",
     `${previous.raw}...${latest.raw}`,
-    DIRECTORY_TO_CHECK,
+    env.DIRECTORY_TO_CHECK!,
   ];
 
   debug(`> git ${gitCommitArgs.join(" ")}`);
@@ -113,7 +114,7 @@ async function main() {
 
   let prs = await findMergedPRs(gitCommits);
   let count = prs.length === 1 ? "1 merged PR" : `${prs.length} merged PRs`;
-  debug(`found ${count} that changed ${DIRECTORY_TO_CHECK}`);
+  debug(`found ${count} that changed ${env.DIRECTORY_TO_CHECK}`);
 
   for (let pr of prs) {
     let prComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which includes this pull request. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
@@ -121,15 +122,19 @@ async function main() {
 
     let promises = [];
 
-    if (!DRY_RUN) {
-      console.log(`https://github.com/${GITHUB_REPOSITORY}/pull/${pr.number}`);
+    if (!env.DRY_RUN) {
+      console.log(
+        `https://github.com/${env.GITHUB_REPOSITORY}/pull/${pr.number}`
+      );
       // prettier-ignore
       let prCommentArgs = ["pr", "comment", String(pr.number), "--body", prComment];
       promises.push(execa("gh", prCommentArgs));
       debug(`> gh ${prCommentArgs.join(" ")}`);
 
       for (let issue of pr.issues) {
-        console.log(`https://github.com/${GITHUB_REPOSITORY}/issues/${issue}`);
+        console.log(
+          `https://github.com/${env.GITHUB_REPOSITORY}/issues/${issue}`
+        );
 
         // prettier-ignore
         let issueCommentArgs = ["issue", "comment", String(issue), "--body", issueComment];

@@ -14,7 +14,7 @@ import { z } from "zod";
 let PACKAGE_VERSION_TO_FOLLOW = process.env.PACKAGE_VERSION_TO_FOLLOW;
 let GITHUB_REPOSITORY = process.env.GITHUB_REPOSITORY;
 let DRY_RUN = process.env.DRY_RUN;
-let DIRECTORY_TO_CHECK = process.env.DIRECTORY_TO_CHECK;
+let DIRECTORY_TO_CHECK = process.env.DIRECTORY_TO_CHECK || "./";
 
 if (!DIRECTORY_TO_CHECK) {
   core.warning("DIRECTORY_TO_CHECK is not set, we'll check all files");
@@ -93,9 +93,9 @@ async function main() {
     "log",
     "--pretty=format:%H",
     `${previous.raw}...${latest.raw}`,
+    DIRECTORY_TO_CHECK,
   ];
 
-  if (DIRECTORY_TO_CHECK) gitCommitArgs.push(DIRECTORY_TO_CHECK);
   debug(`> git ${gitCommitArgs.join(" ")}`);
 
   let gitCommitsResult = await execa("git", gitCommitArgs);
@@ -107,16 +107,13 @@ async function main() {
 
   let gitCommits = gitCommitsResult.stdout.split("\n");
 
-  debug(JSON.stringify({ gitCommits, commitCount: gitCommits.length }));
+  debug(
+    JSON.stringify({ gitCommits, commitCount: gitCommits.length }, null, 2)
+  );
 
   let prs = await findMergedPRs(gitCommits);
-  if (DIRECTORY_TO_CHECK) {
-    debug(
-      `found ${prs.length} merged PRs that changed ${DIRECTORY_TO_CHECK}/*`
-    );
-  } else {
-    debug(`found ${prs.length} merged PRs that changed`);
-  }
+  let count = prs.length === 1 ? "1 merged PR" : `${prs.length} merged PRs`;
+  debug(`found ${count} that changed ${DIRECTORY_TO_CHECK}`);
 
   for (let pr of prs) {
     let prComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which includes this pull request. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
@@ -232,17 +229,11 @@ async function findMergedPRs(commits: Array<string>): Promise<MergedPR[]> {
       }
       let parsed = JSON.parse(prResult.stdout);
 
-      if (parsed.length === 0) {
-        debug(`no PR found for commit ${commit}`);
-        return;
-      }
+      if (parsed.length === 0) return;
 
       let pr = parsed[0] ? pullRequestResultSchema.parse(parsed[0]) : null;
 
-      if (!pr) {
-        debug(`no PR found for commit ${commit}`);
-        return;
-      }
+      if (!pr) return;
 
       if (CHANGESET_PR_TITLES.includes(pr.title.toLowerCase())) {
         debug(`skipping changeset PR ${pr.number}`);
@@ -336,7 +327,7 @@ async function getIssuesLinkedToPullRequest(
     throw new Error(result.stderr);
   }
 
-  console.log(result.stdout);
+  debug(result.stdout);
 
   let parsed = JSON.parse(result.stdout);
 

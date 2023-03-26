@@ -10951,21 +10951,15 @@ const execa_1 = __nccwpck_require__(5601);
 const semver_1 = __importDefault(__nccwpck_require__(9290));
 const trim_newlines_1 = __nccwpck_require__(8646);
 const zod_1 = __nccwpck_require__(801);
-let envSchema = zod_1.z.object({
-    PACKAGE_VERSION_TO_FOLLOW: zod_1.z.string().optional(),
-    GITHUB_REPOSITORY: zod_1.z.string(),
-    DRY_RUN: zod_1.z.coerce.boolean().optional(),
-    DIRECTORY_TO_CHECK: zod_1.z.string().catch((ctx) => {
-        core.warning("DIRECTORY_TO_CHECK is not set, we'll check all files");
-        return "./";
-    }),
-});
-let env = envSchema.parse(process.env);
-if (!env.PACKAGE_VERSION_TO_FOLLOW) {
+let PACKAGE_VERSION_TO_FOLLOW = core.getInput("PACKAGE_VERSION_TO_FOLLOW");
+let DIRECTORY_TO_CHECK = core.getInput("DIRECTORY_TO_CHECK");
+let DRY_RUN = core.getBooleanInput("DRY_RUN");
+let GITHUB_REPOSITORY = core.getInput("GITHUB_REPOSITORY");
+if (!PACKAGE_VERSION_TO_FOLLOW) {
     core.warning("PACKAGE_VERSION_TO_FOLLOW is not set, we'll get all tags");
 }
 function debug(message) {
-    if (env.DRY_RUN || core.isDebug()) {
+    if (DRY_RUN || core.isDebug()) {
         console.log(message);
     }
 }
@@ -10973,8 +10967,8 @@ async function main() {
     let gitTagsArgs = [
         "tag",
         "-l",
-        ...(env.PACKAGE_VERSION_TO_FOLLOW
-            ? [`${env.PACKAGE_VERSION_TO_FOLLOW}@*`, "v0.0.0-nightly-*"]
+        ...(PACKAGE_VERSION_TO_FOLLOW
+            ? [`${PACKAGE_VERSION_TO_FOLLOW}@*`, "v0.0.0-nightly-*"]
             : []),
         "--sort",
         "-creatordate",
@@ -10987,8 +10981,8 @@ async function main() {
         core.error(gitTagsResult.stderr);
         throw new Error(gitTagsResult.stderr);
     }
-    let packageRegex = env.PACKAGE_VERSION_TO_FOLLOW
-        ? new RegExp(`^${env.PACKAGE_VERSION_TO_FOLLOW}@`)
+    let packageRegex = PACKAGE_VERSION_TO_FOLLOW
+        ? new RegExp(`^${PACKAGE_VERSION_TO_FOLLOW}@`)
         : null;
     let gitTags = gitTagsResult.stdout.split("\n").map((tag) => {
         let clean = packageRegex ? tag.replace(packageRegex, "") : tag;
@@ -11022,7 +11016,7 @@ async function main() {
         "log",
         "--pretty=format:%H",
         `${previous.raw}...${latest.raw}`,
-        env.DIRECTORY_TO_CHECK,
+        DIRECTORY_TO_CHECK,
     ];
     debug(`> git ${gitCommitArgs.join(" ")}`);
     let gitCommitsResult = await (0, execa_1.execa)("git", gitCommitArgs);
@@ -11034,19 +11028,19 @@ async function main() {
     debug(JSON.stringify({ gitCommits, commitCount: gitCommits.length }, null, 2));
     let prs = await findMergedPRs(gitCommits);
     let count = prs.length === 1 ? "1 merged PR" : `${prs.length} merged PRs`;
-    debug(`found ${count} that changed ${env.DIRECTORY_TO_CHECK}`);
+    debug(`found ${count} that changed ${DIRECTORY_TO_CHECK}`);
     for (let pr of prs) {
         let prComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which includes this pull request. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
         let issueComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which involves this issue. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
         let promises = [];
-        if (!env.DRY_RUN) {
-            console.log(`https://github.com/${env.GITHUB_REPOSITORY}/pull/${pr.number}`);
+        if (!DRY_RUN) {
+            console.log(`https://github.com/${GITHUB_REPOSITORY}/pull/${pr.number}`);
             // prettier-ignore
             let prCommentArgs = ["pr", "comment", String(pr.number), "--body", prComment];
             promises.push((0, execa_1.execa)("gh", prCommentArgs));
             debug(`> gh ${prCommentArgs.join(" ")}`);
             for (let issue of pr.issues) {
-                console.log(`https://github.com/${env.GITHUB_REPOSITORY}/issues/${issue}`);
+                console.log(`https://github.com/${GITHUB_REPOSITORY}/issues/${issue}`);
                 // prettier-ignore
                 let issueCommentArgs = ["issue", "comment", String(issue), "--body", issueComment];
                 promises.push((0, execa_1.execa)("gh", issueCommentArgs));

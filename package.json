@@ -1,6 +1,6 @@
 {
   "name": "release-comment-action",
-  "version": "0.2.0-pre.0",
+  "version": "0.2.0-pre.1",
   "description": "",
   "main": "index.js",
   "scripts": {

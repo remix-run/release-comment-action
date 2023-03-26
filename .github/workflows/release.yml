@@ -22,6 +22,3 @@ jobs:
 
       - name: 📝 Comment on issues
         uses: ./
-        env:
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GH_TOKEN: ${{ github.token }}

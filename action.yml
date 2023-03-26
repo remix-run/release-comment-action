@@ -1,22 +1,26 @@
 name: "Release Announcement Action"
 description: "automatically comment on released pull requests and linked issues"
+author: "mcansh"
 runs:
   using: "node16"
   main: "dist/index.js"
 inputs:
-  default-branch:
-    description: "The default branch of the repository"
-    default: "main"
-  nightly-branch:
-    description: "The nightly (dev) branch of the repository"
-    required: true
-    default: "dev"
-  package-version-to-follow:
-    description: "The package version to follow"
-    required: true
-  awaiting-release-label:
-    description: "The label to add to pull requests after they've been merged to the nightly branch"
-    default: "awaiting release"
-  version:
-    description: "The version of the release"
-    required: true
+  GH_TOKEN:
+    description: "The GitHub token to use for interacting with the GitHub API - needed for gh commands"
+    required: false
+    default: ${{ github.token }}
+  GITHUB_REPOSITORY:
+    description: "The GitHub repository - needed for creating and logging urls"
+    required: false
+    default: ${{ github.repository }}
+  DIRECTORY_TO_CHECK:
+    description: "The directory to check for release files"
+    required: false
+    default: "./"
+  DRY_RUN:
+    description: "Whether to actually comment on PRs/issues or not"
+    required: false
+    default: "false"
+  PACKAGE_VERSION_TO_FOLLOW:
+    description: "The package version to follow - used for monorepos to filter git tags"
+    required: false

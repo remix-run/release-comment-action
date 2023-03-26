@@ -11,24 +11,17 @@ import semver from "semver";
 import { trimNewlines } from "trim-newlines";
 import { z } from "zod";
 
-let envSchema = z.object({
-  PACKAGE_VERSION_TO_FOLLOW: z.string().optional(),
-  GITHUB_REPOSITORY: z.string(),
-  DRY_RUN: z.coerce.boolean().optional(),
-  DIRECTORY_TO_CHECK: z.string().catch((ctx) => {
-    core.warning("DIRECTORY_TO_CHECK is not set, we'll check all files");
-    return "./";
-  }),
-});
+let PACKAGE_VERSION_TO_FOLLOW = core.getInput("PACKAGE_VERSION_TO_FOLLOW");
+let DIRECTORY_TO_CHECK = core.getInput("DIRECTORY_TO_CHECK");
+let DRY_RUN = core.getBooleanInput("DRY_RUN");
+let GITHUB_REPOSITORY = core.getInput("GITHUB_REPOSITORY");
 
-let env = envSchema.parse(process.env);
-
-if (!env.PACKAGE_VERSION_TO_FOLLOW) {
+if (!PACKAGE_VERSION_TO_FOLLOW) {
   core.warning("PACKAGE_VERSION_TO_FOLLOW is not set, we'll get all tags");
 }
 
 function debug(message: string) {
-  if (env.DRY_RUN || core.isDebug()) {
+  if (DRY_RUN || core.isDebug()) {
     console.log(message);
   }
 }
@@ -37,8 +30,8 @@ async function main() {
   let gitTagsArgs = [
     "tag",
     "-l",
-    ...(env.PACKAGE_VERSION_TO_FOLLOW
-      ? [`${env.PACKAGE_VERSION_TO_FOLLOW}@*`, "v0.0.0-nightly-*"]
+    ...(PACKAGE_VERSION_TO_FOLLOW
+      ? [`${PACKAGE_VERSION_TO_FOLLOW}@*`, "v0.0.0-nightly-*"]
       : []),
     "--sort",
     "-creatordate",
@@ -54,8 +47,8 @@ async function main() {
     throw new Error(gitTagsResult.stderr);
   }
 
-  let packageRegex = env.PACKAGE_VERSION_TO_FOLLOW
-    ? new RegExp(`^${env.PACKAGE_VERSION_TO_FOLLOW}@`)
+  let packageRegex = PACKAGE_VERSION_TO_FOLLOW
+    ? new RegExp(`^${PACKAGE_VERSION_TO_FOLLOW}@`)
     : null;
   let gitTags = gitTagsResult.stdout.split("\n").map((tag) => {
     let clean = packageRegex ? tag.replace(packageRegex, "") : tag;
@@ -94,7 +87,7 @@ async function main() {
     "log",
     "--pretty=format:%H",
     `${previous.raw}...${latest.raw}`,
-    env.DIRECTORY_TO_CHECK!,
+    DIRECTORY_TO_CHECK!,
   ];
 
   debug(`> git ${gitCommitArgs.join(" ")}`);
@@ -114,7 +107,7 @@ async function main() {
 
   let prs = await findMergedPRs(gitCommits);
   let count = prs.length === 1 ? "1 merged PR" : `${prs.length} merged PRs`;
-  debug(`found ${count} that changed ${env.DIRECTORY_TO_CHECK}`);
+  debug(`found ${count} that changed ${DIRECTORY_TO_CHECK}`);
 
   for (let pr of prs) {
     let prComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which includes this pull request. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
@@ -122,19 +115,15 @@ async function main() {
 
     let promises = [];
 
-    if (!env.DRY_RUN) {
-      console.log(
-        `https://github.com/${env.GITHUB_REPOSITORY}/pull/${pr.number}`
-      );
+    if (!DRY_RUN) {
+      console.log(`https://github.com/${GITHUB_REPOSITORY}/pull/${pr.number}`);
       // prettier-ignore
       let prCommentArgs = ["pr", "comment", String(pr.number), "--body", prComment];
       promises.push(execa("gh", prCommentArgs));
       debug(`> gh ${prCommentArgs.join(" ")}`);
 
       for (let issue of pr.issues) {
-        console.log(
-          `https://github.com/${env.GITHUB_REPOSITORY}/issues/${issue}`
-        );
+        console.log(`https://github.com/${GITHUB_REPOSITORY}/issues/${issue}`);
 
         // prettier-ignore
         let issueCommentArgs = ["issue", "comment", String(issue), "--body", issueComment];

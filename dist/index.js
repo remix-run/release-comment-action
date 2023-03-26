@@ -10955,6 +10955,7 @@ let PACKAGE_VERSION_TO_FOLLOW = core.getInput("PACKAGE_VERSION_TO_FOLLOW");
 let DIRECTORY_TO_CHECK = core.getInput("DIRECTORY_TO_CHECK");
 let DRY_RUN = core.getBooleanInput("DRY_RUN");
 let GITHUB_REPOSITORY = core.getInput("GITHUB_REPOSITORY");
+process.env.GH_TOKEN = core.getInput("GH_TOKEN", { required: true });
 if (!PACKAGE_VERSION_TO_FOLLOW) {
     core.warning("PACKAGE_VERSION_TO_FOLLOW is not set, we'll get all tags");
 }

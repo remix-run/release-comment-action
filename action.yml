@@ -4,6 +4,9 @@ author: "mcansh"
 runs:
   using: "node16"
   main: "dist/index.js"
+branding:
+  color: "purple"
+  icon: "tag"
 inputs:
   GH_TOKEN:
     description: "The GitHub token to use for interacting with the GitHub API - needed for gh commands"

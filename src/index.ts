@@ -11,7 +11,7 @@ import semver from "semver";
 import { trimNewlines } from "trim-newlines";
 import { z } from "zod";
 
-let PACKAGE_TAG_PREFIX = core.getInput("PACKAGE_TAG_PREFIX");
+let PACKAGE_NAME = core.getInput("PACKAGE_NAME");
 let DIRECTORY_TO_CHECK = core.getInput("DIRECTORY_TO_CHECK");
 let DRY_RUN = core.getBooleanInput("DRY_RUN");
 let GITHUB_REPOSITORY = core.getInput("GITHUB_REPOSITORY");
@@ -32,8 +32,8 @@ let INCLUDE_NIGHTLY = core.getBooleanInput("INCLUDE_NIGHTLY");
  */
 process.env.GH_TOKEN = core.getInput("GH_TOKEN", { required: true });
 
-if (!PACKAGE_TAG_PREFIX) {
-  core.warning("PACKAGE_TAG_PREFIX is not set, we'll get all tags");
+if (!PACKAGE_NAME) {
+  core.warning("`PACKAGE_NAME` is not set, we'll get all tags");
 }
 
 function debug(message: string) {
@@ -46,8 +46,8 @@ async function main() {
   let gitTagsArgs = [
     "tag",
     "-l",
-    PACKAGE_TAG_PREFIX ? `${PACKAGE_TAG_PREFIX}@*` : "",
-    PACKAGE_TAG_PREFIX && INCLUDE_NIGHTLY ? "v0.0.0-nightly-*" : "",
+    PACKAGE_NAME ? `${PACKAGE_NAME}@*` : "",
+    PACKAGE_NAME && INCLUDE_NIGHTLY ? "v0.0.0-nightly-*" : "",
     "--sort",
     "-creatordate",
     "--format",
@@ -62,9 +62,7 @@ async function main() {
     throw new Error(gitTagsResult.stderr);
   }
 
-  let packageRegex = PACKAGE_TAG_PREFIX
-    ? new RegExp(`^${PACKAGE_TAG_PREFIX}@`)
-    : null;
+  let packageRegex = PACKAGE_NAME ? new RegExp(`^${PACKAGE_NAME}@`) : null;
   let gitTags = gitTagsResult.stdout.split("\n").map((tag) => {
     let clean = packageRegex ? tag.replace(packageRegex, "") : tag;
     return { raw: tag, clean };

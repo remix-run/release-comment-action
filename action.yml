@@ -24,6 +24,10 @@ inputs:
     description: "Whether to actually comment on PRs/issues or not"
     required: false
     default: "false"
-  PACKAGE_VERSION_TO_FOLLOW:
-    description: "The package version to follow - used for monorepos to filter git tags"
+  PACKAGE_TAG_PREFIX:
+    description: "The package tag to follow - used for monorepos to filter git tags (e.g. `@remix-run/v1-route-convention`, or `remix`)"
     required: false
+  INCLUDE_NIGHTLIES:
+    description: "Whether to include nightly releases or not (only applies when `PACKAGE_TAG_PREFIX` is set)"
+    required: false
+    default: "false"

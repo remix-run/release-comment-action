@@ -10951,10 +10951,11 @@ const execa_1 = __nccwpck_require__(5601);
 const semver_1 = __importDefault(__nccwpck_require__(9290));
 const trim_newlines_1 = __nccwpck_require__(8646);
 const zod_1 = __nccwpck_require__(801);
-let PACKAGE_VERSION_TO_FOLLOW = core.getInput("PACKAGE_VERSION_TO_FOLLOW");
+let PACKAGE_TAG_PREFIX = core.getInput("PACKAGE_TAG_PREFIX");
 let DIRECTORY_TO_CHECK = core.getInput("DIRECTORY_TO_CHECK");
 let DRY_RUN = core.getBooleanInput("DRY_RUN");
 let GITHUB_REPOSITORY = core.getInput("GITHUB_REPOSITORY");
+let INCLUDE_NIGHTLIES = core.getBooleanInput("INCLUDE_NIGHTLIES");
 // in order to use the `gh` cli that's provided, we need to set the GH_TOKEN
 // env variable to the value of the GH_TOKEN input
 // not sure if i like it as an input vs having a user have it set in their env
@@ -10966,11 +10967,11 @@ let GITHUB_REPOSITORY = core.getInput("GITHUB_REPOSITORY");
     env:
       GH_TOKEN: ${{ github.token }}
     with:
-      PACKAGE_VERSION_TO_FOLLOW: remix
+      PACKAGE_TAGS_TO_FOLLOW: remix
  */
 process.env.GH_TOKEN = core.getInput("GH_TOKEN", { required: true });
-if (!PACKAGE_VERSION_TO_FOLLOW) {
-    core.warning("PACKAGE_VERSION_TO_FOLLOW is not set, we'll get all tags");
+if (!PACKAGE_TAG_PREFIX) {
+    core.warning("PACKAGE_TAG_PREFIX is not set, we'll get all tags");
 }
 function debug(message) {
     if (DRY_RUN || core.isDebug()) {
@@ -10981,9 +10982,8 @@ async function main() {
     let gitTagsArgs = [
         "tag",
         "-l",
-        ...(PACKAGE_VERSION_TO_FOLLOW
-            ? [`${PACKAGE_VERSION_TO_FOLLOW}@*`, "v0.0.0-nightly-*"]
-            : []),
+        PACKAGE_TAG_PREFIX ? `${PACKAGE_TAG_PREFIX}@*` : "",
+        PACKAGE_TAG_PREFIX && INCLUDE_NIGHTLIES ? "v0.0.0-nightly-*" : "",
         "--sort",
         "-creatordate",
         "--format",
@@ -10995,8 +10995,8 @@ async function main() {
         core.error(gitTagsResult.stderr);
         throw new Error(gitTagsResult.stderr);
     }
-    let packageRegex = PACKAGE_VERSION_TO_FOLLOW
-        ? new RegExp(`^${PACKAGE_VERSION_TO_FOLLOW}@`)
+    let packageRegex = PACKAGE_TAG_PREFIX
+        ? new RegExp(`^${PACKAGE_TAG_PREFIX}@`)
         : null;
     let gitTags = gitTagsResult.stdout.split("\n").map((tag) => {
         let clean = packageRegex ? tag.replace(packageRegex, "") : tag;

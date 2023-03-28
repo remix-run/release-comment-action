@@ -8,29 +8,29 @@ on:
     branches:
       - "main"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: 🛑 Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.11.0
-
       - name: ⬇️ Checkout repo
         uses: actions/checkout@v3
-
-      - name: 🟧 Setup pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 7
 
       - name: ⎔ Setup node
         uses: actions/setup-node@v3
         with:
           node-version: 16
-          cache: pnpm
 
-      - name: 📥 Install deps
-        run: pnpm install --frozen-lockfile
+      - name: 🟧 Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: |
+            - recursive: true
+              args: [--frozen-lockfile, --strict-peer-dependencies]
 
       - name: 📦 Build
         run: pnpm run build

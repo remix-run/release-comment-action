@@ -15,7 +15,7 @@ let PACKAGE_TAG_PREFIX = core.getInput("PACKAGE_TAG_PREFIX");
 let DIRECTORY_TO_CHECK = core.getInput("DIRECTORY_TO_CHECK");
 let DRY_RUN = core.getBooleanInput("DRY_RUN");
 let GITHUB_REPOSITORY = core.getInput("GITHUB_REPOSITORY");
-let INCLUDE_NIGHTLIES = core.getBooleanInput("INCLUDE_NIGHTLIES");
+let INCLUDE_NIGHTLY = core.getBooleanInput("INCLUDE_NIGHTLY");
 
 // in order to use the `gh` cli that's provided, we need to set the GH_TOKEN
 // env variable to the value of the GH_TOKEN input
@@ -47,7 +47,7 @@ async function main() {
     "tag",
     "-l",
     PACKAGE_TAG_PREFIX ? `${PACKAGE_TAG_PREFIX}@*` : "",
-    PACKAGE_TAG_PREFIX && INCLUDE_NIGHTLIES ? "v0.0.0-nightly-*" : "",
+    PACKAGE_TAG_PREFIX && INCLUDE_NIGHTLY ? "v0.0.0-nightly-*" : "",
     "--sort",
     "-creatordate",
     "--format",

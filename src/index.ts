@@ -11,10 +11,11 @@ import semver from "semver";
 import { trimNewlines } from "trim-newlines";
 import { z } from "zod";
 
-let PACKAGE_VERSION_TO_FOLLOW = core.getInput("PACKAGE_VERSION_TO_FOLLOW");
+let PACKAGE_NAME = core.getInput("PACKAGE_NAME");
 let DIRECTORY_TO_CHECK = core.getInput("DIRECTORY_TO_CHECK");
 let DRY_RUN = core.getBooleanInput("DRY_RUN");
 let GITHUB_REPOSITORY = core.getInput("GITHUB_REPOSITORY");
+let INCLUDE_NIGHTLY = core.getBooleanInput("INCLUDE_NIGHTLY");
 
 // in order to use the `gh` cli that's provided, we need to set the GH_TOKEN
 // env variable to the value of the GH_TOKEN input
@@ -27,12 +28,12 @@ let GITHUB_REPOSITORY = core.getInput("GITHUB_REPOSITORY");
     env:
       GH_TOKEN: ${{ github.token }}
     with:
-      PACKAGE_VERSION_TO_FOLLOW: remix
+      PACKAGE_TAGS_TO_FOLLOW: remix
  */
 process.env.GH_TOKEN = core.getInput("GH_TOKEN", { required: true });
 
-if (!PACKAGE_VERSION_TO_FOLLOW) {
-  core.warning("PACKAGE_VERSION_TO_FOLLOW is not set, we'll get all tags");
+if (!PACKAGE_NAME) {
+  core.warning("`PACKAGE_NAME` is not set, we'll get all tags");
 }
 
 function debug(message: string) {
@@ -45,9 +46,8 @@ async function main() {
   let gitTagsArgs = [
     "tag",
     "-l",
-    ...(PACKAGE_VERSION_TO_FOLLOW
-      ? [`${PACKAGE_VERSION_TO_FOLLOW}@*`, "v0.0.0-nightly-*"]
-      : []),
+    PACKAGE_NAME ? `${PACKAGE_NAME}@*` : "",
+    PACKAGE_NAME && INCLUDE_NIGHTLY ? "v0.0.0-nightly-*" : "",
     "--sort",
     "-creatordate",
     "--format",
@@ -62,9 +62,7 @@ async function main() {
     throw new Error(gitTagsResult.stderr);
   }
 
-  let packageRegex = PACKAGE_VERSION_TO_FOLLOW
-    ? new RegExp(`^${PACKAGE_VERSION_TO_FOLLOW}@`)
-    : null;
+  let packageRegex = PACKAGE_NAME ? new RegExp(`^${PACKAGE_NAME}@`) : null;
   let gitTags = gitTagsResult.stdout.split("\n").map((tag) => {
     let clean = packageRegex ? tag.replace(packageRegex, "") : tag;
     return { raw: tag, clean };

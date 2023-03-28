@@ -10955,6 +10955,19 @@ let PACKAGE_VERSION_TO_FOLLOW = core.getInput("PACKAGE_VERSION_TO_FOLLOW");
 let DIRECTORY_TO_CHECK = core.getInput("DIRECTORY_TO_CHECK");
 let DRY_RUN = core.getBooleanInput("DRY_RUN");
 let GITHUB_REPOSITORY = core.getInput("GITHUB_REPOSITORY");
+// in order to use the `gh` cli that's provided, we need to set the GH_TOKEN
+// env variable to the value of the GH_TOKEN input
+// not sure if i like it as an input vs having a user have it set in their env
+// but at least we can set a default this way...
+// doing it the other way would be as follows
+/**
+  - name: 📝 Comment on issues
+    uses: mcansh/release-comment-action
+    env:
+      GH_TOKEN: ${{ github.token }}
+    with:
+      PACKAGE_VERSION_TO_FOLLOW: remix
+ */
 process.env.GH_TOKEN = core.getInput("GH_TOKEN", { required: true });
 if (!PACKAGE_VERSION_TO_FOLLOW) {
     core.warning("PACKAGE_VERSION_TO_FOLLOW is not set, we'll get all tags");

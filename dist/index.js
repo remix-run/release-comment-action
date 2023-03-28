@@ -10982,13 +10982,13 @@ async function main() {
     let gitTagsArgs = [
         "tag",
         "-l",
-        PACKAGE_NAME ? `${PACKAGE_NAME}@*` : "",
-        PACKAGE_NAME && INCLUDE_NIGHTLY ? "v0.0.0-nightly-*" : "",
+        PACKAGE_NAME ? `${PACKAGE_NAME}@*` : null,
+        PACKAGE_NAME && INCLUDE_NIGHTLY ? "v0.0.0-nightly-*" : null,
         "--sort",
         "-creatordate",
         "--format",
         "%(refname:strip=2)",
-    ];
+    ].filter((arg) => arg !== null);
     let gitTagsResult = await (0, execa_1.execa)("git", gitTagsArgs);
     debug(`> ${gitTagsResult.command}`);
     if (gitTagsResult.stderr) {

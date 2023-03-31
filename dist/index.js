@@ -10974,9 +10974,7 @@ if (!PACKAGE_NAME) {
     core.warning("`PACKAGE_NAME` is not set, we'll get all tags");
 }
 function debug(message) {
-    if (DRY_RUN || core.isDebug()) {
-        console.log(message);
-    }
+    console.debug(message);
 }
 async function main() {
     let gitTagsArgs = [
@@ -11037,7 +11035,7 @@ async function main() {
         throw new Error(gitCommitsResult.stderr);
     }
     let gitCommits = gitCommitsResult.stdout.split("\n");
-    debug(JSON.stringify({ gitCommits, commitCount: gitCommits.length }, null, 2));
+    debug(`commitCount: ${gitCommits.length}`);
     let prs = await findMergedPRs(gitCommits);
     let count = prs.length === 1 ? "1 merged PR" : `${prs.length} merged PRs`;
     debug(`found ${count} that changed ${DIRECTORY_TO_CHECK}`);

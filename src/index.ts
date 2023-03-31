@@ -37,9 +37,7 @@ if (!PACKAGE_NAME) {
 }
 
 function debug(message: string) {
-  if (DRY_RUN || core.isDebug()) {
-    console.log(message);
-  }
+  console.debug(message);
 }
 
 async function main() {
@@ -114,9 +112,7 @@ async function main() {
 
   let gitCommits = gitCommitsResult.stdout.split("\n");
 
-  debug(
-    JSON.stringify({ gitCommits, commitCount: gitCommits.length }, null, 2)
-  );
+  debug(`commitCount: ${gitCommits.length}`);
 
   let prs = await findMergedPRs(gitCommits);
   let count = prs.length === 1 ? "1 merged PR" : `${prs.length} merged PRs`;
@@ -196,13 +192,6 @@ async function getIssuesClosedViaBody(prBody: string): Promise<Array<number>> {
   return issuesMatch;
 }
 
-type PrSearchResult = {
-  number: number;
-  title: string;
-  url: string;
-  body: string;
-};
-
 let pullRequestResultSchema = z.object({
   number: z.number(),
   title: z.string(),
@@ -263,22 +252,6 @@ async function findMergedPRs(commits: Array<string>): Promise<MergedPR[]> {
 
   return result.filter((pr: any): pr is MergedPR => pr != undefined);
 }
-
-type ReferencedIssueResultNodes = Array<{ number: number }>;
-type ReferencedIssueResultPageInfo = {
-  hasNextPage: boolean;
-  endCursor: string | null;
-};
-type ReferencedIssueResult = {
-  data: {
-    resource: {
-      closingIssuesReferences: {
-        nodes: ReferencedIssueResultNodes;
-        pageInfo: ReferencedIssueResultPageInfo;
-      };
-    };
-  };
-};
 
 let referencedIssueResultSchema = z.object({
   data: z.object({

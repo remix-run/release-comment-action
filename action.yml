@@ -31,3 +31,9 @@ inputs:
     description: "Whether to include nightly releases or not (only applies when `PACKAGE_TAG_PREFIX` is set)"
     required: true
     default: "true"
+  PR_LABELS_TO_REMOVE:
+    description: "Any labels to remove when commenting on Pull Requests - in Remix we apply `awaiting release` to pulls that have been merged but not released"
+    required: false
+  ISSUE_LABELS_TO_REMOVE:
+    description: "Any labels to remove when commenting on and closing issues"
+    required: false

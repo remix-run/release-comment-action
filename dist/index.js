@@ -11013,6 +11013,8 @@ let DIRECTORY_TO_CHECK = core.getInput("DIRECTORY_TO_CHECK");
 let DRY_RUN = core.getBooleanInput("DRY_RUN");
 let GITHUB_REPOSITORY = core.getInput("GITHUB_REPOSITORY");
 let INCLUDE_NIGHTLY = core.getBooleanInput("INCLUDE_NIGHTLY");
+let PR_LABELS_TO_REMOVE = core.getInput("PR_LABELS_TO_REMOVE");
+let ISSUE_LABELS_TO_REMOVE = core.getInput("ISSUE_LABELS_TO_REMOVE");
 // in order to use the `gh` cli that's provided, we need to set the GH_TOKEN
 // env variable to the value of the GH_TOKEN input
 // not sure if i like it as an input vs having a user have it set in their env
@@ -11092,10 +11094,10 @@ async function main() {
         throw new Error(gitCommitsResult.stderr);
     }
     let gitCommits = gitCommitsResult.stdout.split("\n");
-    debug(`commitCount: ${gitCommits.length}`);
+    debug(`> commitCount: ${gitCommits.length}`);
     let prs = await findMergedPRs(gitCommits);
     let count = prs.length === 1 ? "1 merged PR" : `${prs.length} merged PRs`;
-    debug(`found ${count} that changed ${DIRECTORY_TO_CHECK}`);
+    debug(`> found ${count} that changed ${DIRECTORY_TO_CHECK}`);
     for (let pr of prs) {
         let prComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which includes this pull request. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
         let issueComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which involves this issue. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
@@ -11106,15 +11108,37 @@ async function main() {
             let prCommentArgs = ["pr", "comment", String(pr.number), "--body", prComment];
             promises.push((0, execa_1.execa)("gh", prCommentArgs));
             debug(`> gh ${prCommentArgs.join(" ")}`);
+            if (PR_LABELS_TO_REMOVE) {
+                let prRemoveLabelArgs = [
+                    "pr",
+                    "edit",
+                    String(pr.number),
+                    "--remove-label",
+                    PR_LABELS_TO_REMOVE,
+                ];
+                debug(`> gh ${prRemoveLabelArgs.join(" ")}`);
+                promises.push((0, execa_1.execa)("gh", prRemoveLabelArgs));
+            }
             for (let issue of pr.issues) {
                 console.log(`https://github.com/${GITHUB_REPOSITORY}/issues/${issue}`);
                 // prettier-ignore
                 let issueCommentArgs = ["issue", "comment", String(issue), "--body", issueComment];
-                promises.push((0, execa_1.execa)("gh", issueCommentArgs));
                 debug(`> gh ${issueCommentArgs.join(" ")}`);
+                promises.push((0, execa_1.execa)("gh", issueCommentArgs));
                 let issueCloseArgs = ["issue", "close", String(issue)];
                 debug(`> gh ${issueCloseArgs.join(" ")}`);
                 promises.push((0, execa_1.execa)("gh", issueCloseArgs));
+                if (ISSUE_LABELS_TO_REMOVE) {
+                    let issueRemoveLabelArgs = [
+                        "issue",
+                        "edit",
+                        String(issue),
+                        "--remove-label",
+                        ISSUE_LABELS_TO_REMOVE,
+                    ];
+                    debug(`> gh ${issueRemoveLabelArgs.join(" ")}`);
+                    promises.push((0, execa_1.execa)("gh", issueRemoveLabelArgs));
+                }
             }
         }
         let results = await Promise.allSettled(promises);

@@ -32,8 +32,8 @@ inputs:
     required: true
     default: "true"
   PR_LABELS_TO_REMOVE:
-    description: "Any labels to remove when commenting on Pull Requests - in Remix we apply `awaiting release` to pulls that have been merged but not released"
+    description: "Any labels to remove when commenting on Pull Requests about STABLE releases - in Remix we apply `awaiting release` to pulls that have been merged but not released"
     required: false
   ISSUE_LABELS_TO_REMOVE:
-    description: "Any labels to remove when commenting on and closing issues"
+    description: "Any labels to remove when commenting on and closing issues about STABLE releases"
     required: false

@@ -133,7 +133,7 @@ async function main() {
       promises.push(execa("gh", prCommentArgs));
       debug(`> gh ${prCommentArgs.join(" ")}`);
 
-      if (PR_LABELS_TO_REMOVE) {
+      if (PR_LABELS_TO_REMOVE && isStable) {
         let prRemoveLabelArgs = [
           "pr",
           "edit",
@@ -157,7 +157,7 @@ async function main() {
         debug(`> gh ${issueCloseArgs.join(" ")}`);
         promises.push(execa("gh", issueCloseArgs));
 
-        if (ISSUE_LABELS_TO_REMOVE) {
+        if (ISSUE_LABELS_TO_REMOVE && isStable) {
           let issueRemoveLabelArgs = [
             "issue",
             "edit",

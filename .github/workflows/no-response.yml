@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   stale:
-    if: github.repository == 'remix-run/remix-website'
+    if: github.repository == 'remix-run/release-comment-action'
     runs-on: ubuntu-latest
     steps:
       - name: 🥺 Handle Ghosting

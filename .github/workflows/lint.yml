@@ -18,14 +18,13 @@ jobs:
       - name: ⬇️ Checkout repo
         uses: actions/checkout@v3
 
-      - name: ⎔ Setup node
-        uses: actions/setup-node@v3
+      - name: 🟧 Setup pnpm
+        uses: pnpm/action-setup@v2
         with:
-          cache: npm
-          node-version: 18
-
-      - name: 📥 Install deps
-        run: npm ci
+          version: 8
+          run_install: |
+            - recursive: true
+              args: [--frozen-lockfile, --strict-peer-dependencies]
 
       - name: 🔬 Lint
-        run: npm run lint
+        run: pnpm run lint

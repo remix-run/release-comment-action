@@ -23,13 +23,12 @@ This covers a lot of use cases, even this repo uses this set up, however in a mo
 
 ### Options
 
-| Option                    | Required  | Default                   |
-|---------------------------|-----------|---------------------------|
-| GH_TOKEN                  |  n        | ${{ github.token }}       |
-| GITHUB_REPOSITORY         |  n        | ${{ github.repository }}  |
-| DIRECTORY_TO_CHECK        | n         | ./                        |
-| PACKAGE_VERSION_TO_FOLLOW | n         |                           |
-
+| Option                    | Required | Default                  |
+| ------------------------- | -------- | ------------------------ |
+| GH_TOKEN                  | n        | ${{ github.token }}      |
+| GITHUB_REPOSITORY         | n        | ${{ github.repository }} |
+| DIRECTORY_TO_CHECK        | n        | ./                       |
+| PACKAGE_VERSION_TO_FOLLOW | n        |                          |
 
 [remix]: https://github.com/remix-run/remix
 [react_router]: https://github.com/remix-run/react-router

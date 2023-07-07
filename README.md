@@ -8,14 +8,14 @@ Basic usage can be enabled simply by using the following.
 
 ```yaml
 - name: 📝 Comment on related issues and pull requests
-  uses: mcansh/release-comment-action@0.2.0
+  uses: remix-run/release-comment-action@0.4.1
 ```
 
 This covers a lot of use cases, even this repo uses this set up, however in a monorepo set up you may want to to follow a specific package (like `remix`, or `react-router`). In those situations the following can be used to filter on only the `remix` tag and only commits that affect the `./packages` directory.
 
 ```yaml
 - name: 📝 Comment on related issues and pull requests
-  uses: mcansh/release-comment-action@0.2.0
+  uses: remix-run/release-comment-action@0.4.1
   with:
     DIRECTORY_TO_CHECK: "./packages"
     PACKAGE_VERSION_TO_FOLLOW: "remix"

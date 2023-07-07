@@ -11022,7 +11022,7 @@ let ISSUE_LABELS_TO_REMOVE = core.getInput("ISSUE_LABELS_TO_REMOVE");
 // doing it the other way would be as follows
 /**
   - name: 📝 Comment on issues
-    uses: mcansh/release-comment-action
+    uses: remix-run/release-comment-action
     env:
       GH_TOKEN: ${{ github.token }}
     with:

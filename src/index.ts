@@ -55,9 +55,8 @@ async function main() {
     "--format",
     "%(refname:strip=2)",
   ].filter((arg: any): arg is string => arg !== null);
+  debug(`> git ${gitTagsArgs.join(" ")}`);
   let gitTagsResult = await execa("git", gitTagsArgs);
-
-  debug(`> ${gitTagsResult.command}`);
 
   if (gitTagsResult.stderr) {
     core.error(gitTagsResult.stderr);

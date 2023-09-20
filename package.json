@@ -13,21 +13,21 @@
   "author": "Logan McAnsh <logan@mcan.sh> (https://mcan.sh/)",
   "license": "MIT",
   "dependencies": {
-    "@actions/core": "^1.10.0",
-    "execa": "^7.1.1",
-    "semver": "^7.5.2",
+    "@actions/core": "^1.10.1",
+    "execa": "^8.0.1",
+    "semver": "^7.5.4",
     "trim-newlines": "^5.0.0",
-    "zod": "^3.21.4"
+    "zod": "^3.22.2"
   },
   "devDependencies": {
-    "@remix-run/eslint-config": "^1.16.0",
-    "@tsconfig/node16": "^1.0.3",
-    "@types/node": "^18.16.3",
-    "@types/semver": "^7.3.13",
-    "@vercel/ncc": "^0.36.1",
-    "eslint": "^8.39.0",
+    "@remix-run/eslint-config": "^2.0.0",
+    "@tsconfig/node16": "^16.1.1",
+    "@types/node": "^20.6.2",
+    "@types/semver": "^7.5.2",
+    "@vercel/ncc": "^0.38.0",
+    "eslint": "^8.49.0",
     "eslint-plugin-prefer-let": "^3.0.1",
-    "prettier": "^2.8.8",
-    "typescript": "^5.0.4"
+    "prettier": "^3.0.3",
+    "typescript": "^5.2.2"
   }
 }

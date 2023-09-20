@@ -106,7 +106,6 @@ async function main() {
   ];
 
   debug(`> git ${gitCommitArgs.join(" ")}`);
-
   let gitCommitsResult = await execa("git", gitCommitArgs);
 
   if (gitCommitsResult.stderr) {
@@ -130,10 +129,15 @@ async function main() {
 
     if (!DRY_RUN) {
       console.log(`https://github.com/${GITHUB_REPOSITORY}/pull/${pr.number}`);
-      // prettier-ignore
-      let prCommentArgs = ["pr", "comment", String(pr.number), "--body", prComment];
-      promises.push(execa("gh", prCommentArgs));
+      let prCommentArgs = [
+        "pr",
+        "comment",
+        String(pr.number),
+        "--body",
+        prComment,
+      ];
       debug(`> gh ${prCommentArgs.join(" ")}`);
+      promises.push(execa("gh", prCommentArgs));
 
       if (PR_LABELS_TO_REMOVE && isStable) {
         let prRemoveLabelArgs = [
@@ -150,8 +154,13 @@ async function main() {
       for (let issue of pr.issues) {
         console.log(`https://github.com/${GITHUB_REPOSITORY}/issues/${issue}`);
 
-        // prettier-ignore
-        let issueCommentArgs = ["issue", "comment", String(issue), "--body", issueComment];
+        let issueCommentArgs = [
+          "issue",
+          "comment",
+          String(issue),
+          "--body",
+          issueComment,
+        ];
         debug(`> gh ${issueCommentArgs.join(" ")}`);
         promises.push(execa("gh", issueCommentArgs));
 
@@ -234,7 +243,7 @@ async function findMergedPRs(commits: Array<string>): Promise<MergedPR[]> {
   ];
   let result = await Promise.all(
     commits.map(async (commit) => {
-      let prResult = await execa("gh", [
+      let prSearchArgs = [
         "pr",
         "list",
         "--search",
@@ -243,9 +252,9 @@ async function findMergedPRs(commits: Array<string>): Promise<MergedPR[]> {
         "merged",
         "--json",
         "number,title,url,body",
-      ]);
-
-      debug(`> ${prResult.command}`);
+      ];
+      debug(`> gh ${prSearchArgs.join(" ")}`);
+      let prResult = await execa("gh", prSearchArgs);
 
       if (prResult.stderr) {
         core.error(prResult.stderr);
@@ -318,7 +327,7 @@ async function getIssuesLinkedToPullRequest(
     }
   `;
 
-  let result = await execa("gh", [
+  let args = [
     "api",
     "graphql",
     "--paginate",
@@ -326,9 +335,9 @@ async function getIssuesLinkedToPullRequest(
     `prHtmlUrl=${prHtmlUrl}`,
     "--raw-field",
     `query=${trimNewlines(query)}`,
-  ]);
-
-  debug(`> ${result.command}`);
+  ];
+  debug(`> gh ${args.join(" ")}`);
+  let result = await execa("gh", args);
 
   if (result.stderr) {
     core.error(result.stderr);

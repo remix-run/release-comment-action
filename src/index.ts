@@ -39,7 +39,9 @@ if (!PACKAGE_NAME) {
 }
 
 function debug(message: string) {
-  console.debug(message);
+  if (DRY_RUN || core.isDebug()) {
+    console.log(message);
+  }
 }
 
 async function main() {

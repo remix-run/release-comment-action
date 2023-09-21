@@ -12,6 +12,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: 📦 Build
@@ -19,6 +22,8 @@ jobs:
     steps:
       - name: ⬇️ Checkout repo
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: ⎔ Setup node
         uses: actions/setup-node@v3
@@ -48,5 +53,5 @@ jobs:
           fi
 
           git commit -a -m "build: update"
-          git push origin HEAD:${GITHUB_REF#refs/heads/}
+          git push
           echo "💿 pushed build https://github.com/$GITHUB_REPOSITORY/commit/$(git rev-parse HEAD)"

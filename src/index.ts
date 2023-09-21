@@ -1,4 +1,5 @@
 import * as core from "@actions/core";
+
 import { main } from "./lib.js";
 
 main().then(

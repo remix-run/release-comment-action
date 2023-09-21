@@ -1,7 +1,6 @@
-import fs from "node:fs";
-import path from "node:path";
 import { execaSync } from "execa";
-import { beforeAll, afterAll, expect, describe, test } from "vitest";
+import { expect, test } from "vitest";
+
 import { findMergedPRs, getCommits, getTags } from "../src/lib.js";
 
 let RANDOM_STRING = Math.random().toString(36).substring(7);

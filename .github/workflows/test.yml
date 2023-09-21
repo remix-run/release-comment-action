@@ -28,3 +28,5 @@ jobs:
 
       - name: 🧪 Test
         run: pnpm run test
+        env:
+          GH_TOKEN: ${{ github.token }}

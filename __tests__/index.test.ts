@@ -1,3 +1,4 @@
+import type { SyncOptions } from "execa";
 import { execaSync } from "execa";
 import { afterAll, beforeAll, expect, test } from "vitest";
 
@@ -11,15 +12,16 @@ let PACKAGE_TO_TRACK = `remix` as const;
 let RANDOM_STRING = Math.random().toString(36).substring(7);
 let TMP_DIR = `${REPO}-${RANDOM_STRING}`;
 
-let cwd;
+let cwd: string;
 
 beforeAll(() => {
+  let execaOptions: SyncOptions = { stdio: "inherit" };
+  let cloneArgs = ["clone", `https://github.com/${REPOSITORY}`, TMP_DIR];
+  let fetchArgs = ["fetch", "--tags"];
   // clone the repo
-  execaSync("git", ["clone", `https://github.com/${REPOSITORY}`, TMP_DIR], {
-    stdio: "inherit",
-  });
+  execaSync("git", cloneArgs, execaOptions);
   // fetch git tags
-  execaSync("git", ["fetch", "--tags"], { stdio: "inherit" });
+  execaSync("git", fetchArgs, execaOptions);
   cwd = process.cwd();
   process.chdir(TMP_DIR);
 });
@@ -31,7 +33,6 @@ afterAll(() => {
 
 //////////////////////////////////////////////// TESTS ////////////////////////////////////////////////
 test("the whole shooting match", async () => {
-  execaSync("git", ["fetch", "--tags"], { stdio: "inherit" });
   let tags = await getTags(PACKAGE_TO_TRACK, false);
 
   expect(tags).toEqual({

@@ -1,4 +1,4 @@
-name: build and commit
+name: 📦 Build
 
 on:
   push:
@@ -12,12 +12,18 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   build:
+    name: 📦 Build
     runs-on: ubuntu-latest
     steps:
       - name: ⬇️ Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: ⎔ Setup node
         uses: actions/setup-node@v3

@@ -1,4 +1,4 @@
-name: build and commit
+name: 📦 Build
 
 on:
   push:
@@ -14,6 +14,7 @@ concurrency:
 
 jobs:
   build:
+    name: 📦 Build
     runs-on: ubuntu-latest
     steps:
       - name: ⬇️ Checkout repo

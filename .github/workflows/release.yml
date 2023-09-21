@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   comment:
-    name: Comment on Release
+    name: 📝 Comment on Release
     if: github.repository == 'remix-run/release-comment-action'
     runs-on: ubuntu-latest
     steps:
@@ -20,5 +20,5 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: 📝 Comment on issues
+      - name: 📝 Comment on Release
         uses: ./

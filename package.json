@@ -8,7 +8,8 @@
   "scripts": {
     "build": "ncc build src/index.ts --license licenses.txt",
     "lint": "eslint --cache --fix --ignore-path .eslintignore .",
-    "format": "prettier --write --ignore-path .eslintignore ."
+    "format": "prettier --write --ignore-path .eslintignore .",
+    "test": "vitest --no-threads run"
   },
   "author": "Logan McAnsh <logan@mcan.sh> (https://mcan.sh/)",
   "license": "MIT",
@@ -28,6 +29,8 @@
     "eslint": "^8.49.0",
     "eslint-plugin-prefer-let": "^3.0.1",
     "prettier": "^3.0.3",
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "vite": "^4.4.9",
+    "vitest": "^0.34.5"
   }
 }

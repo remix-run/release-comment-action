@@ -24,6 +24,29 @@ beforeAll(() => {
   execaSync("git", fetchArgs, execaOptions);
   cwd = process.cwd();
   process.chdir(TMP_DIR);
+
+  let currentDate = new Date("2023-09-21T23:31:48.180Z");
+
+  // remove tags prior to 2.0.1
+  let tagsToRemove = execaSync("git", [
+    "tag",
+    "-l",
+    "--sort",
+    "-creatordate",
+    "--format",
+    "%(refname:strip=2) %(taggerdate)",
+  ])
+    .stdout.split("\n")
+    .filter((line) => {
+      let [, tagTag] = line.split(" ");
+      let date = new Date(tagTag);
+      return date < currentDate;
+    });
+
+  for (let tag of tagsToRemove) {
+    console.log(`removing tag ${tag}`);
+    execaSync("git", ["tag", "-d", tag]);
+  }
 });
 
 afterAll(() => {

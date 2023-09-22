@@ -2,7 +2,7 @@ name: "Release Announcement Action"
 description: "automatically comment on released pull requests and linked issues"
 author: "remix-run"
 runs:
-  using: "node16"
+  using: "node20"
   main: "dist/index.js"
 branding:
   color: "purple"

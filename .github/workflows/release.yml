@@ -20,5 +20,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: ⎔ Setup node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
       - name: 📝 Comment on issues
         uses: ./

@@ -15,7 +15,7 @@
     "execa": "^7.1.1",
     "semver": "^7.5.2",
     "trim-newlines": "^5.0.0",
-    "zod": "^3.21.4"
+    "zod": "^3.22.3"
   },
   "devDependencies": {
     "@remix-run/eslint-config": "^1.16.0",

@@ -19,7 +19,7 @@
   },
   "devDependencies": {
     "@remix-run/eslint-config": "^1.16.0",
-    "@tsconfig/node16": "^1.0.3",
+    "@tsconfig/node20": "^20.1.4",
     "@types/node": "^18.16.3",
     "@types/semver": "^7.3.13",
     "@vercel/ncc": "^0.36.1",
@@ -27,5 +27,6 @@
     "eslint-plugin-prefer-let": "^3.0.1",
     "prettier": "^2.8.8",
     "typescript": "^5.0.4"
-  }
+  },
+  "packageManager": "pnpm@8.15.6+sha256.01c01eeb990e379b31ef19c03e9d06a14afa5250b82e81303f88721c99ff2e6f"
 }

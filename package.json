@@ -2,7 +2,8 @@
   "name": "release-comment-action",
   "version": "0.4.1",
   "description": "",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "type": "module",
   "scripts": {
     "build": "ncc build src/index.ts --license licenses.txt",
     "lint": "eslint --cache --fix --ignore-path .eslintignore .",

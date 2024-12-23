@@ -1762,15 +1762,15 @@ exports.checkBypass = checkBypass;
 
 /***/ }),
 
-/***/ 9859:
+/***/ 3077:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 "use strict";
 
 
 const cp = __nccwpck_require__(2081);
-const parse = __nccwpck_require__(3069);
-const enoent = __nccwpck_require__(6775);
+const parse = __nccwpck_require__(9384);
+const enoent = __nccwpck_require__(3973);
 
 function spawn(command, args, options) {
     // Parse the arguments
@@ -1809,7 +1809,7 @@ module.exports._enoent = enoent;
 
 /***/ }),
 
-/***/ 6775:
+/***/ 3973:
 /***/ ((module) => {
 
 "use strict";
@@ -1839,7 +1839,7 @@ function hookChildProcess(cp, parsed) {
         // the command exists and emit an "error" instead
         // See https://github.com/IndigoUnited/node-cross-spawn/issues/16
         if (name === 'exit') {
-            const err = verifyENOENT(arg1, parsed, 'spawn');
+            const err = verifyENOENT(arg1, parsed);
 
             if (err) {
                 return originalEmit.call(cp, 'error', err);
@@ -1876,16 +1876,16 @@ module.exports = {
 
 /***/ }),
 
-/***/ 3069:
+/***/ 9384:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 "use strict";
 
 
 const path = __nccwpck_require__(1017);
-const resolveCommand = __nccwpck_require__(6841);
-const escape = __nccwpck_require__(1445);
-const readShebang = __nccwpck_require__(9574);
+const resolveCommand = __nccwpck_require__(5282);
+const escape = __nccwpck_require__(5554);
+const readShebang = __nccwpck_require__(7463);
 
 const isWin = process.platform === 'win32';
 const isExecutableRegExp = /\.(?:com|exe)$/i;
@@ -1975,7 +1975,7 @@ module.exports = parse;
 
 /***/ }),
 
-/***/ 1445:
+/***/ 5554:
 /***/ ((module) => {
 
 "use strict";
@@ -1996,15 +1996,17 @@ function escapeArgument(arg, doubleEscapeMetaChars) {
     arg = `${arg}`;
 
     // Algorithm below is based on https://qntm.org/cmd
+    // It's slightly altered to disable JS backtracking to avoid hanging on specially crafted input
+    // Please see https://github.com/moxystudio/node-cross-spawn/pull/160 for more information
 
     // Sequence of backslashes followed by a double quote:
     // double up all the backslashes and escape the double quote
-    arg = arg.replace(/(\\*)"/g, '$1$1\\"');
+    arg = arg.replace(/(?=(\\+?)?)\1"/g, '$1$1\\"');
 
     // Sequence of backslashes followed by the end of the string
     // (which will become a double quote later):
     // double up all the backslashes
-    arg = arg.replace(/(\\*)$/, '$1$1');
+    arg = arg.replace(/(?=(\\+?)?)\1$/, '$1$1');
 
     // All other backslashes occur literally
 
@@ -2028,7 +2030,7 @@ module.exports.argument = escapeArgument;
 
 /***/ }),
 
-/***/ 9574:
+/***/ 7463:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 "use strict";
@@ -2059,7 +2061,7 @@ module.exports = readShebang;
 
 /***/ }),
 
-/***/ 6841:
+/***/ 5282:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 "use strict";
@@ -3845,7 +3847,7 @@ const neq = __nccwpck_require__(7735)
 const gt = __nccwpck_require__(1062)
 const gte = __nccwpck_require__(453)
 const lt = __nccwpck_require__(9785)
-const lte = __nccwpck_require__(807)
+const lte = __nccwpck_require__(3069)
 
 const cmp = (a, op, b, loose) => {
   switch (op) {
@@ -4129,7 +4131,7 @@ module.exports = lt
 
 /***/ }),
 
-/***/ 807:
+/***/ 3069:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 const compare = __nccwpck_require__(5461)
@@ -4303,7 +4305,7 @@ const lt = __nccwpck_require__(9785)
 const eq = __nccwpck_require__(1106)
 const neq = __nccwpck_require__(7735)
 const gte = __nccwpck_require__(453)
-const lte = __nccwpck_require__(807)
+const lte = __nccwpck_require__(3069)
 const cmp = __nccwpck_require__(3510)
 const coerce = __nccwpck_require__(3918)
 const Comparator = __nccwpck_require__(3579)
@@ -4853,7 +4855,7 @@ const Range = __nccwpck_require__(9051)
 const satisfies = __nccwpck_require__(1366)
 const gt = __nccwpck_require__(1062)
 const lt = __nccwpck_require__(9785)
-const lte = __nccwpck_require__(807)
+const lte = __nccwpck_require__(3069)
 const gte = __nccwpck_require__(453)
 
 const outside = (version, range, hilo, options) => {
@@ -11494,8 +11496,8 @@ const external_node_path_namespaceObject = require("node:path");
 const external_node_child_process_namespaceObject = require("node:child_process");
 ;// CONCATENATED MODULE: external "node:process"
 const external_node_process_namespaceObject = require("node:process");
-// EXTERNAL MODULE: ./node_modules/.pnpm/cross-spawn@7.0.3/node_modules/cross-spawn/index.js
-var cross_spawn = __nccwpck_require__(9859);
+// EXTERNAL MODULE: ./node_modules/.pnpm/cross-spawn@7.0.6/node_modules/cross-spawn/index.js
+var cross_spawn = __nccwpck_require__(3077);
 ;// CONCATENATED MODULE: ./node_modules/.pnpm/strip-final-newline@3.0.0/node_modules/strip-final-newline/index.js
 function stripFinalNewline(input) {
 	const LF = typeof input === 'string' ? '\n' : '\n'.charCodeAt();

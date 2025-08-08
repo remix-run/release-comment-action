@@ -79,10 +79,31 @@ async function main() {
   if (isPreRelease) {
     debug(`pre-release: ${latest.clean}`);
     let preRelease = semver.prerelease(latest.clean);
-    if (preRelease && preRelease.join(".") === "pre.0") {
+
+    if (!preRelease || typeof preRelease[1] !== "number") {
+      core.error("Unable to parse prerelease");
+      throw new Error("Unable to parse prerelease");
+    }
+
+    if (preRelease.join(".") === "pre.0") {
+      // pre.0 - compare against the prior stable release
       debug(`first pre-release: ${latest.clean}`);
       let stableTags = getStableTags(gitTags);
       previous = stableTags[0];
+    } else {
+      // >=pre.1 - compare against the prior prerelease
+      let priorTag = latest.raw.replace(
+        preRelease.join("."),
+        [preRelease[0], preRelease[1] - 1].join(".") // pre.N-1`
+      );
+      debug(`looking for prior prerelease tag: ${priorTag}`);
+      let priorPreRelease = gitTags.find((tag) => tag.raw === priorTag);
+      if (priorPreRelease) {
+        previous = priorPreRelease;
+      } else {
+        core.error("Unable to find the prior prerelease, exiting...");
+        throw new Error("Unable to find the prior prerelease, exiting...");
+      }
     }
   } else if (isStable) {
     debug(`stable: ${latest.clean}`);

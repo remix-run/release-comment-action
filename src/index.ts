@@ -11,6 +11,18 @@ import semver from "semver";
 import { trimNewlines } from "trim-newlines";
 import { z } from "zod";
 
+/*
+To run locally, you can provide inputs with `INPUT_` prefixes:
+
+INPUT_DRY_RUN="true" \
+INPUT_PACKAGE_NAME="react-router" \
+INPUT_DIRECTORY_TO_CHECK="packages/." \
+INPUT_INCLUDE_NIGHTLY="false" \
+INPUT_GITHUB_REPOSITORY="remix-run/react-router" \
+INPUT_ISSUE_LABELS_TO_REMOVE="awaiting-release" \
+node ../release-comment-action/src/index.ts
+*/
+
 let PACKAGE_NAME = core.getInput("PACKAGE_NAME");
 let DIRECTORY_TO_CHECK = core.getInput("DIRECTORY_TO_CHECK");
 let DRY_RUN = core.getBooleanInput("DRY_RUN");
@@ -32,7 +44,7 @@ let ISSUE_LABELS_TO_REMOVE = core.getInput("ISSUE_LABELS_TO_REMOVE");
     with:
       PACKAGE_TAGS_TO_FOLLOW: remix
  */
-process.env.GH_TOKEN = core.getInput("GH_TOKEN", { required: true });
+process.env.GH_TOKEN = core.getInput("GH_TOKEN", { required: !DRY_RUN });
 
 if (!PACKAGE_NAME) {
   core.warning("`PACKAGE_NAME` is not set, we'll get all tags");
@@ -87,28 +99,28 @@ async function main() {
 
     if (preRelease.join(".") === "pre.0") {
       // pre.0 - compare against the prior stable release
-      debug(`first pre-release: ${latest.clean}`);
-      let stableTags = getStableTags(gitTags);
-      previous = stableTags[0];
+      previous = findPreviousStableRelease(latest, gitTags);
+      debug(`prior stable: ${previous.clean}`);
     } else {
       // >=pre.1 - compare against the prior prerelease
       let priorTag = latest.raw.replace(
         preRelease.join("."),
         [preRelease[0], preRelease[1] - 1].join(".") // pre.N-1`
       );
-      debug(`looking for prior prerelease tag: ${priorTag}`);
       let priorPreRelease = gitTags.find((tag) => tag.raw === priorTag);
       if (priorPreRelease) {
         previous = priorPreRelease;
       } else {
-        core.error("Unable to find the prior prerelease, exiting...");
-        throw new Error("Unable to find the prior prerelease, exiting...");
+        let err = `Unable to find prior prerelease tag ${priorTag}`;
+        core.error(err);
+        throw new Error(err);
       }
+      debug(`prior pre-release: ${previous.clean}`);
     }
   } else if (isStable) {
     debug(`stable: ${latest.clean}`);
-    let stableTags = getStableTags(gitTags);
-    previous = stableTags[1];
+    previous = findPreviousStableRelease(latest, gitTags);
+    debug(`prior stable: ${previous.clean}`);
   } else {
     debug(`nightly: ${latest.clean}`);
   }
@@ -141,54 +153,67 @@ async function main() {
   let count = prs.length === 1 ? "1 merged PR" : `${prs.length} merged PRs`;
   debug(`> found ${count} that changed ${DIRECTORY_TO_CHECK}`);
 
+  if (DRY_RUN) {
+    debug("");
+    debug(
+      "Exiting due to DRY_RUN - found the following PRs and linked issues:"
+    );
+    for (let pr of prs) {
+      debug(` - https://github.com/${GITHUB_REPOSITORY}/pull/${pr.number}`);
+      for (let issue of pr.issues) {
+        debug(`   - https://github.com/${GITHUB_REPOSITORY}/issues/${issue}`);
+      }
+    }
+    process.exit(0);
+    return;
+  }
+
   for (let pr of prs) {
     let prComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which includes this pull request. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
     let issueComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which involves this issue. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
 
     let promises = [];
 
-    if (!DRY_RUN) {
-      console.log(`https://github.com/${GITHUB_REPOSITORY}/pull/${pr.number}`);
+    console.log(`https://github.com/${GITHUB_REPOSITORY}/pull/${pr.number}`);
+    // prettier-ignore
+    let prCommentArgs = ["pr", "comment", String(pr.number), "--body", prComment];
+    promises.push(execa("gh", prCommentArgs));
+    debug(`> gh ${prCommentArgs.join(" ")}`);
+
+    if (PR_LABELS_TO_REMOVE && isStable) {
+      let prRemoveLabelArgs = [
+        "pr",
+        "edit",
+        String(pr.number),
+        "--remove-label",
+        PR_LABELS_TO_REMOVE,
+      ];
+      debug(`> gh ${prRemoveLabelArgs.join(" ")}`);
+      promises.push(execa("gh", prRemoveLabelArgs));
+    }
+
+    for (let issue of pr.issues) {
+      console.log(`https://github.com/${GITHUB_REPOSITORY}/issues/${issue}`);
+
       // prettier-ignore
-      let prCommentArgs = ["pr", "comment", String(pr.number), "--body", prComment];
-      promises.push(execa("gh", prCommentArgs));
-      debug(`> gh ${prCommentArgs.join(" ")}`);
+      let issueCommentArgs = ["issue", "comment", String(issue), "--body", issueComment];
+      debug(`> gh ${issueCommentArgs.join(" ")}`);
+      promises.push(execa("gh", issueCommentArgs));
 
-      if (PR_LABELS_TO_REMOVE && isStable) {
-        let prRemoveLabelArgs = [
-          "pr",
+      let issueCloseArgs = ["issue", "close", String(issue)];
+      debug(`> gh ${issueCloseArgs.join(" ")}`);
+      promises.push(execa("gh", issueCloseArgs));
+
+      if (ISSUE_LABELS_TO_REMOVE && isStable) {
+        let issueRemoveLabelArgs = [
+          "issue",
           "edit",
-          String(pr.number),
+          String(issue),
           "--remove-label",
-          PR_LABELS_TO_REMOVE,
+          ISSUE_LABELS_TO_REMOVE,
         ];
-        debug(`> gh ${prRemoveLabelArgs.join(" ")}`);
-        promises.push(execa("gh", prRemoveLabelArgs));
-      }
-
-      for (let issue of pr.issues) {
-        console.log(`https://github.com/${GITHUB_REPOSITORY}/issues/${issue}`);
-
-        // prettier-ignore
-        let issueCommentArgs = ["issue", "comment", String(issue), "--body", issueComment];
-        debug(`> gh ${issueCommentArgs.join(" ")}`);
-        promises.push(execa("gh", issueCommentArgs));
-
-        let issueCloseArgs = ["issue", "close", String(issue)];
-        debug(`> gh ${issueCloseArgs.join(" ")}`);
-        promises.push(execa("gh", issueCloseArgs));
-
-        if (ISSUE_LABELS_TO_REMOVE && isStable) {
-          let issueRemoveLabelArgs = [
-            "issue",
-            "edit",
-            String(issue),
-            "--remove-label",
-            ISSUE_LABELS_TO_REMOVE,
-          ];
-          debug(`> gh ${issueRemoveLabelArgs.join(" ")}`);
-          promises.push(execa("gh", issueRemoveLabelArgs));
-        }
+        debug(`> gh ${issueRemoveLabelArgs.join(" ")}`);
+        promises.push(execa("gh", issueRemoveLabelArgs));
       }
     }
 
@@ -199,6 +224,23 @@ async function main() {
       throw new Error("failed to comment on PRs and issues");
     }
   }
+}
+
+function findPreviousStableRelease(tag: Tag, gitTags: Tag[]): Tag {
+  let stableTags = getStableTags(gitTags);
+  let expectedMajor = semver.major(tag.clean);
+  if (semver.minor(tag.clean) === 0 && semver.patch(tag.clean) === 0) {
+    expectedMajor -= 1;
+  }
+  let previous = stableTags.find(
+    (t) => semver.major(t.clean) === expectedMajor
+  );
+  if (!previous) {
+    let err = `No previous stable release found for prior major version ${expectedMajor}`;
+    core.error(err);
+    throw new Error(err);
+  }
+  return previous;
 }
 
 type MergedPR = {

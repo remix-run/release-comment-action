@@ -53,6 +53,41 @@ function debug(message: string) {
 }
 
 async function main() {
+  let { latest, previous, isStable } = await findBoundingTags();
+
+  // Find the git comments between the tags
+  let gitCommits = await getCommits(previous, latest);
+
+  // Find any PRs associated with those commits
+  let prs = await findMergedPRs(gitCommits);
+
+  let plural = prs.length > 1 ? "s" : "";
+  debug(
+    `> found ${prs.length} merged PR${plural} that changed ${DIRECTORY_TO_CHECK}`
+  );
+
+  if (DRY_RUN) {
+    debug("");
+    debug(
+      "Exiting due to DRY_RUN - found the following PRs and linked issues:"
+    );
+    for (let pr of prs) {
+      debug(` - https://github.com/${GITHUB_REPOSITORY}/pull/${pr.number}`);
+      for (let issue of pr.issues) {
+        debug(`   - https://github.com/${GITHUB_REPOSITORY}/issues/${issue}`);
+      }
+    }
+    process.exit(0);
+    return;
+  }
+
+  // Comment on PRs + comment on/close linked issues
+  for (let pr of prs) {
+    await commentOnPrAndLinkedIssues(pr, latest, isStable);
+  }
+}
+
+async function findBoundingTags() {
   // Determine the tags making up the delta from the prior release to this release
   let gitTagsResult = await execCmd(
     "git",
@@ -128,12 +163,15 @@ async function main() {
     JSON.stringify({ latest, previous, isPreRelease, isStable, isNightly })
   );
 
-  // Find the git comments between the tags
+  return { previous, latest, isStable };
+}
+
+async function getCommits(from: Tag, to: Tag): Promise<Array<string>> {
   let gitCommitsResult = await execCmd(
     "git",
     "log",
     "--pretty=format:%H",
-    `${previous.raw}...${latest.raw}`,
+    `${from.raw}...${to.raw}`,
     DIRECTORY_TO_CHECK!
   );
 
@@ -144,90 +182,71 @@ async function main() {
 
   let gitCommits = gitCommitsResult.stdout.split("\n");
   debug(`> commitCount: ${gitCommits.length}`);
+  return gitCommits;
+}
 
-  // Find any PRs associated with those commits
-  let prs = await findMergedPRs(gitCommits);
+async function commentOnPrAndLinkedIssues(
+  pr: MergedPR,
+  latest: Tag,
+  isStable: boolean
+) {
+  let prComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which includes this pull request. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
+  let issueComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which involves this issue. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
 
-  let plural = prs.length > 1 ? "s" : "";
-  debug(
-    `> found ${prs.length} merged PR${plural} that changed ${DIRECTORY_TO_CHECK}`
+  let promises: Promise<ExecaReturnValue>[] = [];
+
+  debug(`https://github.com/${GITHUB_REPOSITORY}/pull/${pr.number}`);
+
+  // Comment on PR
+  promises.push(
+    execCmd("gh", "pr", "comment", String(pr.number), "--body", prComment)
   );
 
-  if (DRY_RUN) {
-    debug("");
-    debug(
-      "Exiting due to DRY_RUN - found the following PRs and linked issues:"
-    );
-    for (let pr of prs) {
-      debug(` - https://github.com/${GITHUB_REPOSITORY}/pull/${pr.number}`);
-      for (let issue of pr.issues) {
-        debug(`   - https://github.com/${GITHUB_REPOSITORY}/issues/${issue}`);
-      }
-    }
-    process.exit(0);
-    return;
-  }
-
-  // Comment on PRs + comment on/close linked issues
-  for (let pr of prs) {
-    let prComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which includes this pull request. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
-    let issueComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which involves this issue. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
-
-    let promises: Promise<ExecaReturnValue>[] = [];
-
-    debug(`https://github.com/${GITHUB_REPOSITORY}/pull/${pr.number}`);
-
-    // Comment on PR
+  // Remove PR labels for stable releases
+  if (PR_LABELS_TO_REMOVE && isStable) {
     promises.push(
-      execCmd("gh", "pr", "comment", String(pr.number), "--body", prComment)
-    );
-
-    // Remove PR labels for stable releases
-    if (PR_LABELS_TO_REMOVE && isStable) {
-      promises.push(
-        execCmd(
-          "gh",
+      execCmd(
+        "gh",
         "pr",
         "edit",
         String(pr.number),
         "--remove-label",
-          PR_LABELS_TO_REMOVE
-        )
-      );
-    }
+        PR_LABELS_TO_REMOVE
+      )
+    );
+  }
 
-    for (let issue of pr.issues) {
-      debug(`https://github.com/${GITHUB_REPOSITORY}/issues/${issue}`);
+  for (let issue of pr.issues) {
+    debug(`https://github.com/${GITHUB_REPOSITORY}/issues/${issue}`);
 
-      // Comment on linked issue
+    // Comment on linked issue
+    promises.push(
+      execCmd("gh", "issue", "comment", String(issue), "--body", issueComment)
+    );
+
+    // Close linked issue
+    promises.push(execCmd("gh", "issue", "close", String(issue)));
+
+    // Remove labels from linked issue
+    if (ISSUE_LABELS_TO_REMOVE && isStable) {
       promises.push(
-        execCmd("gh", "issue", "comment", String(issue), "--body", issueComment)
-      );
-
-      // Close linked issue
-      promises.push(execCmd("gh", "issue", "close", String(issue)));
-
-      // Remove labels from linked issue
-      if (ISSUE_LABELS_TO_REMOVE && isStable) {
-        promises.push(
-          execCmd(
-            "gh",
+        execCmd(
+          "gh",
           "issue",
           "edit",
           String(issue),
           "--remove-label",
-            ISSUE_LABELS_TO_REMOVE
-          )
-        );
-      }
+          ISSUE_LABELS_TO_REMOVE
+        )
+      );
     }
+  }
 
-    let results = await Promise.allSettled(promises);
-    let failures = results.filter((result) => result.status === "rejected");
-    if (failures.length > 0) {
-      core.error(`the following commands failed: ${JSON.stringify(failures)}`);
-      throw new Error("failed to comment on PRs and issues");
-    }
+  let results = await Promise.allSettled(promises);
+  let failures = results.filter((result) => result.status === "rejected");
+  if (failures.length > 0) {
+    core.error(`the following commands failed: ${JSON.stringify(failures)}`);
+    throw new Error("failed to comment on PRs and issues");
   }
 }
 

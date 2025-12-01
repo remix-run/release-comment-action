@@ -19,6 +19,8 @@ INPUT_PACKAGE_NAME="react-router" \
 INPUT_DIRECTORY_TO_CHECK="packages/." \
 INPUT_GITHUB_REPOSITORY="remix-run/react-router" \
 INPUT_INCLUDE_NIGHTLY="false" \
+INPUT_ISSUE_LABELS_TO_REMOVE="awaiting release" \
+INPUT_ISSUE_LABELS_TO_KEEP_OPEN="🗺️Roadmap" \
 node ../release-comment-action/src/index.ts
 */
 

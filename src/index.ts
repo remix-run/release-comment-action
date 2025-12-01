@@ -6,7 +6,7 @@
 // 6. close issues that are referenced in the PRs using `gh issue close`
 
 import * as core from "@actions/core";
-import { execa } from "execa";
+import { type ExecaReturnValue, execa } from "execa";
 import semver from "semver";
 import { trimNewlines } from "trim-newlines";
 import { z } from "zod";
@@ -17,9 +17,10 @@ To run locally, you can provide inputs with `INPUT_` prefixes:
 INPUT_DRY_RUN="true" \
 INPUT_PACKAGE_NAME="react-router" \
 INPUT_DIRECTORY_TO_CHECK="packages/." \
-INPUT_INCLUDE_NIGHTLY="false" \
 INPUT_GITHUB_REPOSITORY="remix-run/react-router" \
-INPUT_ISSUE_LABELS_TO_REMOVE="awaiting-release" \
+INPUT_INCLUDE_NIGHTLY="false" \
+INPUT_ISSUE_LABELS_TO_REMOVE="awaiting release" \
+INPUT_ISSUE_LABELS_TO_KEEP_OPEN="🗺️Roadmap" \
 node ../release-comment-action/src/index.ts
 */
 
@@ -30,6 +31,7 @@ let GITHUB_REPOSITORY = core.getInput("GITHUB_REPOSITORY");
 let INCLUDE_NIGHTLY = core.getBooleanInput("INCLUDE_NIGHTLY");
 let PR_LABELS_TO_REMOVE = core.getInput("PR_LABELS_TO_REMOVE");
 let ISSUE_LABELS_TO_REMOVE = core.getInput("ISSUE_LABELS_TO_REMOVE");
+let ISSUE_LABELS_TO_KEEP_OPEN = core.getInput("ISSUE_LABELS_TO_KEEP_OPEN");
 
 // in order to use the `gh` cli that's provided, we need to set the GH_TOKEN
 // env variable to the value of the GH_TOKEN input
@@ -55,19 +57,38 @@ function debug(message: string) {
 }
 
 async function main() {
-  let gitTagsArgs = [
+  let { latest, previous, isStable } = await findBoundingTags();
+
+  // Find the git comments between the tags
+  let gitCommits = await getCommits(previous, latest);
+
+  // Find any PRs associated with those commits
+  let prs = await findMergedPRs(gitCommits);
+
+  let plural = prs.length > 1 ? "s" : "";
+  debug(
+    `> found ${prs.length} merged PR${plural} that changed ${DIRECTORY_TO_CHECK}`
+  );
+
+  // Comment on PRs + comment on/close linked issues
+  for (let pr of prs) {
+    await commentOnPrAndLinkedIssues(pr, latest, isStable);
+  }
+}
+
+async function findBoundingTags() {
+  // Determine the tags making up the delta from the prior release to this release
+  let gitTagsResult = await execCmd(
+    "git",
     "tag",
     "-l",
-    PACKAGE_NAME ? `${PACKAGE_NAME}@*` : null,
-    PACKAGE_NAME && INCLUDE_NIGHTLY ? "v0.0.0-nightly-*" : null,
+    PACKAGE_NAME ? `${PACKAGE_NAME}@*` : "",
+    PACKAGE_NAME && INCLUDE_NIGHTLY ? "v0.0.0-nightly-*" : "",
     "--sort",
     "-creatordate",
     "--format",
-    "%(refname:strip=2)",
-  ].filter((arg: any): arg is string => arg !== null);
-  let gitTagsResult = await execa("git", gitTagsArgs);
-
-  debug(`> ${gitTagsResult.command}`);
+    "%(refname:strip=2)"
+  );
 
   if (gitTagsResult.stderr) {
     core.error(gitTagsResult.stderr);
@@ -118,10 +139,12 @@ async function main() {
       debug(`prior pre-release: ${previous.clean}`);
     }
   } else if (isStable) {
+    // stable - compare against the prior prerelease
     debug(`stable: ${latest.clean}`);
     previous = findPreviousStableRelease(latest, gitTags);
     debug(`prior stable: ${previous.clean}`);
   } else {
+    // nightly - compare against the prior tag which is already in `previous`
     debug(`nightly: ${latest.clean}`);
   }
 
@@ -129,16 +152,17 @@ async function main() {
     JSON.stringify({ latest, previous, isPreRelease, isStable, isNightly })
   );
 
-  let gitCommitArgs = [
+  return { previous, latest, isStable };
+}
+
+async function getCommits(from: Tag, to: Tag): Promise<Array<string>> {
+  let gitCommitsResult = await execCmd(
+    "git",
     "log",
     "--pretty=format:%H",
-    `${previous.raw}...${latest.raw}`,
-    DIRECTORY_TO_CHECK!,
-  ];
-
-  debug(`> git ${gitCommitArgs.join(" ")}`);
-
-  let gitCommitsResult = await execa("git", gitCommitArgs);
+    `${from.raw}...${to.raw}`,
+    DIRECTORY_TO_CHECK!
+  );
 
   if (gitCommitsResult.stderr) {
     core.error(gitCommitsResult.stderr);
@@ -146,82 +170,112 @@ async function main() {
   }
 
   let gitCommits = gitCommitsResult.stdout.split("\n");
-
   debug(`> commitCount: ${gitCommits.length}`);
+  return gitCommits;
+}
 
-  let prs = await findMergedPRs(gitCommits);
-  let count = prs.length === 1 ? "1 merged PR" : `${prs.length} merged PRs`;
-  debug(`> found ${count} that changed ${DIRECTORY_TO_CHECK}`);
+async function commentOnPrAndLinkedIssues(
+  pr: MergedPR,
+  latest: Tag,
+  isStable: boolean
+) {
+  let prComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which includes this pull request. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
+
+  let promises: Promise<unknown>[] = [];
+
+  debug(`\nPR: https://github.com/${GITHUB_REPOSITORY}/pull/${pr.number}`);
 
   if (DRY_RUN) {
-    debug("");
-    debug(
-      "Exiting due to DRY_RUN - found the following PRs and linked issues:"
+    debug(`[dry-run] would comment on PR #${pr.number}`);
+  } else {
+    // Comment on PR
+    promises.push(
+      execCmd("gh", "pr", "comment", String(pr.number), "--body", prComment)
     );
-    for (let pr of prs) {
-      debug(` - https://github.com/${GITHUB_REPOSITORY}/pull/${pr.number}`);
-      for (let issue of pr.issues) {
-        debug(`   - https://github.com/${GITHUB_REPOSITORY}/issues/${issue}`);
-      }
+
+    // Remove PR labels for stable releases
+    if (PR_LABELS_TO_REMOVE && isStable) {
+      promises.push(
+        execCmd(
+          "gh",
+          "pr",
+          "edit",
+          String(pr.number),
+          "--remove-label",
+          PR_LABELS_TO_REMOVE
+        )
+      );
     }
-    process.exit(0);
-    return;
   }
 
-  for (let pr of prs) {
-    let prComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which includes this pull request. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
-    let issueComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which involves this issue. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
+  for (let issue of pr.issues) {
+    promises.push(commentOnIssue(issue, latest, isStable));
+  }
 
-    let promises = [];
+  let results = await Promise.allSettled(promises);
+  let failures = results.filter((result) => result.status === "rejected");
+  if (failures.length > 0) {
+    core.error(`the following commands failed: ${JSON.stringify(failures)}`);
+    throw new Error("failed to comment on PRs and issues");
+  }
+}
 
-    console.log(`https://github.com/${GITHUB_REPOSITORY}/pull/${pr.number}`);
-    // prettier-ignore
-    let prCommentArgs = ["pr", "comment", String(pr.number), "--body", prComment];
-    promises.push(execa("gh", prCommentArgs));
-    debug(`> gh ${prCommentArgs.join(" ")}`);
+async function commentOnIssue(issue: number, latest: Tag, isStable: boolean) {
+  let issueComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which involves this issue. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
 
-    if (PR_LABELS_TO_REMOVE && isStable) {
-      let prRemoveLabelArgs = [
-        "pr",
+  debug(`Issue: https://github.com/${GITHUB_REPOSITORY}/issues/${issue}`);
+
+  let shouldClose = true;
+  if (ISSUE_LABELS_TO_KEEP_OPEN) {
+    try {
+      let labels = await getIssueLabels(String(issue));
+      console.log("Labels on issue #" + issue + ": " + labels.join(", "));
+      shouldClose = !labels.includes(ISSUE_LABELS_TO_KEEP_OPEN);
+    } catch (err) {
+      debug(`⚠️ Unable to get labels for issue #${issue}: ${String(err)}`);
+    }
+  }
+
+  if (DRY_RUN) {
+    debug(`[dry-run] would comment on issue #${issue}`);
+    if (shouldClose) {
+      debug(`[dry-run] would close issue #${issue}`);
+    }
+    if (ISSUE_LABELS_TO_REMOVE && isStable) {
+      debug(
+        `[dry-run] would remove label "${ISSUE_LABELS_TO_REMOVE}" from issue #${issue}`
+      );
+    }
+  } else {
+    // Comment on linked issue
+    await execCmd(
+      "gh",
+      "issue",
+      "comment",
+      String(issue),
+      "--body",
+      issueComment
+    );
+
+    // Close linked issue
+    if (shouldClose) {
+      await execCmd("gh", "issue", "close", String(issue));
+    } else {
+      debug(
+        `Skipping close of issue #${issue} due to "${ISSUE_LABELS_TO_KEEP_OPEN}" label`
+      );
+    }
+
+    // Remove labels from linked issue
+    if (ISSUE_LABELS_TO_REMOVE && isStable) {
+      await execCmd(
+        "gh",
+        "issue",
         "edit",
-        String(pr.number),
+        String(issue),
         "--remove-label",
-        PR_LABELS_TO_REMOVE,
-      ];
-      debug(`> gh ${prRemoveLabelArgs.join(" ")}`);
-      promises.push(execa("gh", prRemoveLabelArgs));
-    }
-
-    for (let issue of pr.issues) {
-      console.log(`https://github.com/${GITHUB_REPOSITORY}/issues/${issue}`);
-
-      // prettier-ignore
-      let issueCommentArgs = ["issue", "comment", String(issue), "--body", issueComment];
-      debug(`> gh ${issueCommentArgs.join(" ")}`);
-      promises.push(execa("gh", issueCommentArgs));
-
-      let issueCloseArgs = ["issue", "close", String(issue)];
-      debug(`> gh ${issueCloseArgs.join(" ")}`);
-      promises.push(execa("gh", issueCloseArgs));
-
-      if (ISSUE_LABELS_TO_REMOVE && isStable) {
-        let issueRemoveLabelArgs = [
-          "issue",
-          "edit",
-          String(issue),
-          "--remove-label",
-          ISSUE_LABELS_TO_REMOVE,
-        ];
-        debug(`> gh ${issueRemoveLabelArgs.join(" ")}`);
-        promises.push(execa("gh", issueRemoveLabelArgs));
-      }
-    }
-
-    let results = await Promise.allSettled(promises);
-    let failures = results.filter((result) => result.status === "rejected");
-    if (failures.length > 0) {
-      core.error(`the following commands failed: ${JSON.stringify(failures)}`);
-      throw new Error("failed to comment on PRs and issues");
+        ISSUE_LABELS_TO_REMOVE
+      );
     }
   }
 }
@@ -295,7 +349,8 @@ async function findMergedPRs(commits: Array<string>): Promise<MergedPR[]> {
   ];
   let result = await Promise.all(
     commits.map(async (commit) => {
-      let prResult = await execa("gh", [
+      let prResult = await execCmd(
+        "gh",
         "pr",
         "list",
         "--search",
@@ -303,10 +358,8 @@ async function findMergedPRs(commits: Array<string>): Promise<MergedPR[]> {
         "--state",
         "merged",
         "--json",
-        "number,title,url,body",
-      ]);
-
-      debug(`> ${prResult.command}`);
+        "number,title,url,body"
+      );
 
       if (prResult.stderr) {
         core.error(prResult.stderr);
@@ -328,7 +381,9 @@ async function findMergedPRs(commits: Array<string>): Promise<MergedPR[]> {
       let linkedIssues = await getIssuesLinkedToPullRequest(pr.url);
       let issuesClosedViaBody = await getIssuesClosedViaBody(pr.body);
 
-      debug(JSON.stringify({ linkedIssues, issuesClosedViaBody }));
+      debug(
+        JSON.stringify({ pr: pr.number, linkedIssues, issuesClosedViaBody })
+      );
 
       let uniqueIssues = new Set([...linkedIssues, ...issuesClosedViaBody]);
 
@@ -379,17 +434,16 @@ async function getIssuesLinkedToPullRequest(
     }
   `;
 
-  let result = await execa("gh", [
+  let result = await execCmd(
+    "gh",
     "api",
     "graphql",
     "--paginate",
     "--field",
     `prHtmlUrl=${prHtmlUrl}`,
     "--raw-field",
-    `query=${trimNewlines(query)}`,
-  ]);
-
-  debug(`> ${result.command}`);
+    `query=${trimNewlines(query)}`
+  );
 
   if (result.stderr) {
     core.error(result.stderr);
@@ -411,6 +465,89 @@ async function getIssuesLinkedToPullRequest(
   return valid.data.data.resource.closingIssuesReferences.nodes.map(
     (node) => node.number
   );
+}
+
+let issueLabelsSchema = z.object({
+  data: z.object({
+    repository: z.object({
+      issue: z.object({
+        number: z.number(),
+        title: z.string(),
+        url: z.string(),
+        labels: z.object({
+          nodes: z.array(
+            z.object({
+              name: z.string(),
+            })
+          ),
+        }),
+      }),
+    }),
+  }),
+});
+
+async function getIssueLabels(number: string): Promise<Array<string>> {
+  let gql = String.raw;
+
+  let query = gql`
+    query ($owner: String!, $repo: String!, $number: Int!) {
+      repository(owner: $owner, name: $repo) {
+        issue(number: $number) {
+          number
+          title
+          url
+          labels(first: 25) {
+            nodes {
+              name
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  let [owner, repo] = GITHUB_REPOSITORY.split("/");
+  let result = await execCmd(
+    "gh",
+    "api",
+    "graphql",
+    "--field",
+    `owner=${owner}`,
+    "--field",
+    `repo=${repo}`,
+    "--field",
+    `number=${number}`,
+    "--raw-field",
+    `query=${trimNewlines(query)}`
+  );
+
+  if (result.stderr) {
+    core.error(result.stderr);
+    throw new Error(result.stderr);
+  }
+
+  debug(result.stdout);
+
+  let parsed = JSON.parse(result.stdout);
+
+  let valid = issueLabelsSchema.safeParse(parsed);
+
+  if (!valid.success) {
+    core.error(`Unexpected result from graphql query`);
+    core.error(JSON.stringify(valid.error));
+    throw new Error(`Unexpected result from graphql query`);
+  }
+
+  return valid.data.data.repository.issue.labels.nodes.map((node) => node.name);
+}
+async function execCmd(
+  command: string,
+  ..._args: string[]
+): Promise<ExecaReturnValue> {
+  let args = _args.filter((arg) => arg.length > 0);
+  debug(`> ${command} ${args.join(" ")}`);
+  let result = await execa(command, args);
+  return result;
 }
 
 main().then(

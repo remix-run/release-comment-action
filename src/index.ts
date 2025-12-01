@@ -18,6 +18,7 @@ INPUT_DRY_RUN="true" \
 INPUT_PACKAGE_NAME="react-router" \
 INPUT_DIRECTORY_TO_CHECK="packages/." \
 INPUT_GITHUB_REPOSITORY="remix-run/react-router" \
+INPUT_INCLUDE_NIGHTLY="false" \
 node ../release-comment-action/src/index.ts
 */
 
@@ -28,6 +29,7 @@ let GITHUB_REPOSITORY = core.getInput("GITHUB_REPOSITORY");
 let INCLUDE_NIGHTLY = core.getBooleanInput("INCLUDE_NIGHTLY");
 let PR_LABELS_TO_REMOVE = core.getInput("PR_LABELS_TO_REMOVE");
 let ISSUE_LABELS_TO_REMOVE = core.getInput("ISSUE_LABELS_TO_REMOVE");
+let ISSUE_LABELS_TO_KEEP_OPEN = core.getInput("ISSUE_LABELS_TO_KEEP_OPEN");
 
 // in order to use the `gh` cli that's provided, we need to set the GH_TOKEN
 // env variable to the value of the GH_TOKEN input
@@ -65,21 +67,6 @@ async function main() {
   debug(
     `> found ${prs.length} merged PR${plural} that changed ${DIRECTORY_TO_CHECK}`
   );
-
-  if (DRY_RUN) {
-    debug("");
-    debug(
-      "Exiting due to DRY_RUN - found the following PRs and linked issues:"
-    );
-    for (let pr of prs) {
-      debug(` - https://github.com/${GITHUB_REPOSITORY}/pull/${pr.number}`);
-      for (let issue of pr.issues) {
-        debug(`   - https://github.com/${GITHUB_REPOSITORY}/issues/${issue}`);
-      }
-    }
-    process.exit(0);
-    return;
-  }
 
   // Comment on PRs + comment on/close linked issues
   for (let pr of prs) {
@@ -191,55 +178,36 @@ async function commentOnPrAndLinkedIssues(
   isStable: boolean
 ) {
   let prComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which includes this pull request. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
-  let issueComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which involves this issue. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
 
-  let promises: Promise<ExecaReturnValue>[] = [];
+  let promises: Promise<unknown>[] = [];
 
-  debug(`https://github.com/${GITHUB_REPOSITORY}/pull/${pr.number}`);
+  debug(`\nPR: https://github.com/${GITHUB_REPOSITORY}/pull/${pr.number}`);
 
-  // Comment on PR
-  promises.push(
-    execCmd("gh", "pr", "comment", String(pr.number), "--body", prComment)
-  );
-
-  // Remove PR labels for stable releases
-  if (PR_LABELS_TO_REMOVE && isStable) {
+  if (DRY_RUN) {
+    debug(`[dry-run] would comment on PR #${pr.number}`);
+  } else {
+    // Comment on PR
     promises.push(
-      execCmd(
-        "gh",
-        "pr",
-        "edit",
-        String(pr.number),
-        "--remove-label",
-        PR_LABELS_TO_REMOVE
-      )
-    );
-  }
-
-  for (let issue of pr.issues) {
-    debug(`https://github.com/${GITHUB_REPOSITORY}/issues/${issue}`);
-
-    // Comment on linked issue
-    promises.push(
-      execCmd("gh", "issue", "comment", String(issue), "--body", issueComment)
+      execCmd("gh", "pr", "comment", String(pr.number), "--body", prComment)
     );
 
-    // Close linked issue
-    promises.push(execCmd("gh", "issue", "close", String(issue)));
-
-    // Remove labels from linked issue
-    if (ISSUE_LABELS_TO_REMOVE && isStable) {
+    // Remove PR labels for stable releases
+    if (PR_LABELS_TO_REMOVE && isStable) {
       promises.push(
         execCmd(
           "gh",
-          "issue",
+          "pr",
           "edit",
-          String(issue),
+          String(pr.number),
           "--remove-label",
-          ISSUE_LABELS_TO_REMOVE
+          PR_LABELS_TO_REMOVE
         )
       );
     }
+  }
+
+  for (let issue of pr.issues) {
+    promises.push(commentOnIssue(issue, latest, isStable));
   }
 
   let results = await Promise.allSettled(promises);
@@ -247,6 +215,66 @@ async function commentOnPrAndLinkedIssues(
   if (failures.length > 0) {
     core.error(`the following commands failed: ${JSON.stringify(failures)}`);
     throw new Error("failed to comment on PRs and issues");
+  }
+}
+
+async function commentOnIssue(issue: number, latest: Tag, isStable: boolean) {
+  let issueComment = `🤖 Hello there,\n\nWe just published version \`${latest.clean}\` which involves this issue. If you'd like to take it for a test run please try it out and let us know what you think!\n\nThanks!`;
+
+  debug(`Issue: https://github.com/${GITHUB_REPOSITORY}/issues/${issue}`);
+
+  let shouldClose = true;
+  if (ISSUE_LABELS_TO_KEEP_OPEN) {
+    try {
+      let labels = await getIssueLabels(String(issue));
+      console.log("Labels on issue #" + issue + ": " + labels.join(", "));
+      shouldClose = !labels.includes(ISSUE_LABELS_TO_KEEP_OPEN);
+    } catch (err) {
+      debug(`⚠️ Unable to get labels for issue #${issue}: ${String(err)}`);
+    }
+  }
+
+  if (DRY_RUN) {
+    debug(`[dry-run] would comment on issue #${issue}`);
+    if (shouldClose) {
+      debug(`[dry-run] would close issue #${issue}`);
+    }
+    if (ISSUE_LABELS_TO_REMOVE && isStable) {
+      debug(
+        `[dry-run] would remove label "${ISSUE_LABELS_TO_REMOVE}" from issue #${issue}`
+      );
+    }
+  } else {
+    // Comment on linked issue
+    await execCmd(
+      "gh",
+      "issue",
+      "comment",
+      String(issue),
+      "--body",
+      issueComment
+    );
+
+    // Close linked issue
+    if (shouldClose) {
+      await execCmd("gh", "issue", "close", String(issue));
+    } else {
+      debug(
+        `Skipping close of issue #${issue} due to "${ISSUE_LABELS_TO_KEEP_OPEN}" label`
+      );
+    }
+
+    // Remove labels from linked issue
+    if (ISSUE_LABELS_TO_REMOVE && isStable) {
+      await execCmd(
+        "gh",
+        "issue",
+        "edit",
+        String(issue),
+        "--remove-label",
+        ISSUE_LABELS_TO_REMOVE
+      );
+    }
   }
 }
 
@@ -437,6 +465,79 @@ async function getIssuesLinkedToPullRequest(
   );
 }
 
+let issueLabelsSchema = z.object({
+  data: z.object({
+    repository: z.object({
+      issue: z.object({
+        number: z.number(),
+        title: z.string(),
+        url: z.string(),
+        labels: z.object({
+          nodes: z.array(
+            z.object({
+              name: z.string(),
+            })
+          ),
+        }),
+      }),
+    }),
+  }),
+});
+
+async function getIssueLabels(number: string): Promise<Array<string>> {
+  let gql = String.raw;
+
+  let query = gql`
+    query ($owner: String!, $repo: String!, $number: Int!) {
+      repository(owner: $owner, name: $repo) {
+        issue(number: $number) {
+          number
+          title
+          url
+          labels(first: 25) {
+            nodes {
+              name
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  let [owner, repo] = GITHUB_REPOSITORY.split("/");
+  let result = await execCmd(
+    "gh",
+    "api",
+    "graphql",
+    "--field",
+    `owner=${owner}`,
+    "--field",
+    `repo=${repo}`,
+    "--field",
+    `number=${number}`,
+    "--raw-field",
+    `query=${trimNewlines(query)}`
+  );
+
+  if (result.stderr) {
+    core.error(result.stderr);
+    throw new Error(result.stderr);
+  }
+
+  debug(result.stdout);
+
+  let parsed = JSON.parse(result.stdout);
+
+  let valid = issueLabelsSchema.safeParse(parsed);
+
+  if (!valid.success) {
+    core.error(`Unexpected result from graphql query`);
+    core.error(JSON.stringify(valid.error));
+    throw new Error(`Unexpected result from graphql query`);
+  }
+
+  return valid.data.data.repository.issue.labels.nodes.map((node) => node.name);
+}
 async function execCmd(
   command: string,
   ..._args: string[]

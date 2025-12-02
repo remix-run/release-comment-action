@@ -169,6 +169,10 @@ async function getCommits(from: Tag, to: Tag): Promise<Array<string>> {
     throw new Error(gitCommitsResult.stderr);
   }
 
+  if (gitCommitsResult.stdout.trim() === "") {
+    throw new Error("No commits found between tags");
+  }
+
   let gitCommits = gitCommitsResult.stdout.split("\n");
   debug(`> commitCount: ${gitCommits.length}`);
   return gitCommits;
@@ -287,7 +291,7 @@ function findPreviousStableRelease(tag: Tag, gitTags: Tag[]): Tag {
     expectedMajor -= 1;
   }
   let previous = stableTags.find(
-    (t) => semver.major(t.clean) === expectedMajor
+    (t) => t.clean !== tag.clean && semver.major(t.clean) === expectedMajor
   );
   if (!previous) {
     let err = `No previous stable release found for prior major version ${expectedMajor}`;

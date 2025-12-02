@@ -11223,6 +11223,9 @@ async function getCommits(from, to) {
         core.error(gitCommitsResult.stderr);
         throw new Error(gitCommitsResult.stderr);
     }
+    if (gitCommitsResult.stdout.trim() === "") {
+        throw new Error("No commits found between tags");
+    }
     let gitCommits = gitCommitsResult.stdout.split("\n");
     debug(`> commitCount: ${gitCommits.length}`);
     return gitCommits;
@@ -11297,7 +11300,7 @@ function findPreviousStableRelease(tag, gitTags) {
     if (semver_1.default.minor(tag.clean) === 0 && semver_1.default.patch(tag.clean) === 0) {
         expectedMajor -= 1;
     }
-    let previous = stableTags.find((t) => semver_1.default.major(t.clean) === expectedMajor);
+    let previous = stableTags.find((t) => t.clean !== tag.clean && semver_1.default.major(t.clean) === expectedMajor);
     if (!previous) {
         let err = `No previous stable release found for prior major version ${expectedMajor}`;
         core.error(err);
